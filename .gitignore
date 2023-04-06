@@ -1,3 +1,10 @@
+.cache
+.xmake
+llvm-15*
+clang-15*
+build
+compile_commands.json
+
 # Prerequisites
 *.d
 

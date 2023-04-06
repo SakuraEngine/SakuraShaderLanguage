@@ -1,0 +1,28 @@
+name: windows-build-shipping
+
+on: [push, pull_request]
+  
+jobs:
+ build-windows-shipping:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+       lfs: 'true'
+    - uses: xmake-io/github-action-setup-xmake@v1
+      with:
+        xmake-version: latest
+    - name: Set env
+      id: env
+      run: |
+        xmake g -c
+        xmake l setup.lua
+    - name: Shipping
+      run: |
+        xmake f -m release --cc=clang-cl --cxx=clang-cl -c -y -v --policies=build.ccache:n
+        xmake -y -v
+    - name: UploadShipping
+      uses: actions/upload-artifact@v3
+      with:
+        name: artifacts
+        path: build
