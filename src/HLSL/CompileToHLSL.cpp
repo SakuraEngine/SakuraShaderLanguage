@@ -24,6 +24,11 @@ HLSLShaderLibrary::HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& opt
     }
 }
 
+void HLSLShaderLibrary::translate()
+{
+
+}
+
 std::string HLSLShaderLibrary::serialize() const
 {
     return "";
@@ -32,6 +37,7 @@ std::string HLSLShaderLibrary::serialize() const
 std::string compile(const SourceFile& P, const HLSLOptions& options)
 {
     HLSLShaderLibrary lib(P, options);
+    lib.translate();
     return lib.serialize();
 }
 }

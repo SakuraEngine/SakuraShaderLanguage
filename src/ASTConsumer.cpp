@@ -28,6 +28,8 @@ void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
             case (clang::Decl::ClassTemplate):
             case (clang::Decl::ParmVar):
             case (clang::Decl::Field):
+            case (clang::Decl::Var):
+            case (clang::Decl::VarTemplateSpecialization):
                 HandleRecord(named_decl, newStack, PAR_NoReflect, nullptr);
                 break;
             default:
@@ -115,6 +117,23 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, std::vector<std::strin
     case clang::Decl::CXXRecord:
     {
         declare = db.structs.emplace_back(new StructDeclare(attrDecl, filename));
+        break;
+    }
+    case clang::Decl::Var:
+    case clang::Decl::VarTemplateSpecialization:
+    {
+        if (auto tmpvar = llvm::dyn_cast<clang::VarDecl>(attrDecl))
+        {
+            auto parent = tmpvar->getParentFunctionOrMethod();
+            if (parent == nullptr)
+            {
+                db.vars.emplace_back(new VarDeclare(attrDecl, filename));
+            }
+            else if (auto funcDecl = db.find(llvm::dyn_cast<clang::FunctionDecl>(parent)))
+            {
+                funcDecl->vars.emplace_back(new VarDeclare(attrDecl, filename));
+            }
+        }
         break;
     }
     default: 

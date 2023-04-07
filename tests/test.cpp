@@ -1,9 +1,12 @@
+#pragma pack_matrix(row_major)
+
 #define builtin(name) clang::annotate("sakura-shader", "builtin", (name), 1)
 #define attribute(semantic, i) clang::annotate("sakura-shader", "attribute", semantic, (#i))
 #define stage(name) clang::annotate("sakura-shader", "stage", (#name))
 #define stage_in clang::annotate("sakura-shader", "stage_in", "0")
-#define sv(semantic) clang::annotate("sakura-shader", "sv", semantic)
+#define sv(semantic, ...) clang::annotate("sakura-shader", "sv", semantic, __VA_ARGS__)
 #define sv_position sv("position") 
+#define sv_target(i) sv("target", (i)) 
 
 [[builtin("sin")]] extern float sin(float rad);
 [[builtin("cos")]] extern float cos(float rad);
@@ -56,8 +59,12 @@ void vert_main([[stage_in]] Vertex vertex, [[sv_position]] float4& sv_pos)
     sv_pos = vertex.position;
 }
 
+template<typename type_t, int I>
+[[sv_target(I)]] type_t rtv;
+
 [[stage(fragment)]] 
-float4 frag_main([[sv_position]] float4 pos)
+void frag_main([[sv_position]] float4 pos)
 {
-    return float4(1.f, 0.f, 0.f, 1.f);
+    rtv<float4, 0> = float4(1.f, 0.f, 0.f, 1.f);
+    // rtv<float4, 2> = float4(1.f, 0.f, 0.f, 1.f);
 }

@@ -24,11 +24,14 @@ struct SourceFile
     std::span<struct StructDeclare* const> getStructs() const { return structs; }
     std::span<struct FunctionDeclare* const> getFunctions() const { return functions; }
 
+    struct FunctionDeclare* find(clang::FunctionDecl* decl) const;
+
 protected:
     std::string filename;
     std::string abs_filename;
-    std::vector<struct FunctionDeclare*> functions;
-    std::vector<struct StructDeclare*> structs;
+    llvm::SmallVector<struct VarDeclare*> vars;
+    llvm::SmallVector<struct FunctionDeclare*> functions;
+    llvm::SmallVector<struct StructDeclare*> structs;
 };
 
 struct Declare 
@@ -47,6 +50,23 @@ protected:
     std::string_view file_id;
     llvm::SmallVector<ShaderAttribute*, 16> attributes;
     // SourceFile* _file = nullptr;
+};
+
+struct VarDeclare : public Declare
+{
+    VarDeclare(clang::NamedDecl* decl, std::string_view file_id)
+        : Declare(decl, file_id)
+    {
+        
+    }
+};
+
+struct VarTemplateDeclare : public Declare
+{
+    VarTemplateDeclare(clang::NamedDecl* decl, std::string_view file_id);
+    ~VarTemplateDeclare();
+
+    VarDeclare* var;
 };
 
 struct FieldDeclare : public Declare
@@ -78,7 +98,10 @@ struct FunctionDeclare : public Declare
 {
     FunctionDeclare(clang::NamedDecl* decl, std::string_view file_id);
     ~FunctionDeclare();
+
+    bool is(clang::FunctionDecl* decl) const { return this->decl == decl; }
     
+    llvm::SmallVector<VarDeclare*, 16> vars;
     llvm::SmallVector<ParameterDeclare*, 8> parameters;
 };
 
