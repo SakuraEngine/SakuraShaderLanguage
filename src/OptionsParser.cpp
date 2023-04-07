@@ -32,6 +32,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h"
 
+#include <filesystem>
 #include <iostream>
 
 using namespace clang::tooling;
@@ -116,7 +117,9 @@ const char* Overview)
     SourcePathList = SourcePaths;
     if (SourcePaths.empty())
     {
-        SourcePathList.emplace_back("D:\\SaeruHikari\\fork\\SakuraShaderLanguage\\tests\\test.cpp");
+        auto thisFile = std::filesystem::current_path();
+        auto testFile = thisFile.parent_path().parent_path().parent_path().parent_path() / "tests" / "test.cpp";
+        SourcePathList.emplace_back(testFile.string());
     }
 
     if (SourcePathList.empty())
