@@ -5,12 +5,21 @@
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
 
+/*
+#include "llvm/Support/Regex.h"
+#include "clang/Rewrite/Core/Rewriter.h"
+#include "clang/Rewrite/Core/TokenRewriter.h"
+#include "clang/Rewrite/Frontend/Rewriters.h"
+#include "clang/Tooling/Core/Replacement.h"
+*/
+
 // Declares llvm::cl::extrahelp.
 #include "ASTConsumer.h"
 #include "OptionsParser.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Path.h"
 #include <fstream>
+#include <iostream>
 #include <memory>
 
 namespace tooling = clang::tooling;
@@ -29,9 +38,9 @@ CommonHelp(tooling::CommonOptionsParser::HelpMessage);
 static llvm::cl::extrahelp MoreHelp("\nMore help text...\n");
 
 static llvm::cl::opt<std::string> Output(
-"output", llvm::cl::Optional,
-llvm::cl::desc("Specify database output directory, depending on extension"),
-ToolCategory, llvm::cl::value_desc("directory"));
+    "output", llvm::cl::Optional,
+    llvm::cl::desc("Specify database output directory, depending on extension"),
+    ToolCategory, llvm::cl::value_desc("directory"));
 
 static ssl::FileDataMap datamap;
 class SSLFrontendAction : public clang::ASTFrontendAction
@@ -39,10 +48,11 @@ class SSLFrontendAction : public clang::ASTFrontendAction
 public:
     SSLFrontendAction() {}
 
-    std::unique_ptr<clang::ASTConsumer>
-    CreateASTConsumer(clang::CompilerInstance& compiler, llvm::StringRef file)
+    std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance& CI, llvm::StringRef InFile)
     {
-        auto& LO = compiler.getLangOpts();
+        auto& PP = CI.getPreprocessor();
+        clang::SourceManager& SM = PP.getSourceManager();
+        auto& LO = CI.getLangOpts();
         LO.CommentOpts.ParseAllComments = true;
         return std::make_unique<ssl::ASTConsumer>(datamap);
     }

@@ -19,6 +19,7 @@ enum ParseBehavior
     PAR_Reflect,
     PAR_NoReflect
 };
+
 class ASTConsumer : public clang::ASTConsumer
 {
 public:
