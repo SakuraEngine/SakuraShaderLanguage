@@ -1,38 +1,5 @@
 #pragma pack_matrix(row_major)
-
-#define builtin(name) clang::annotate("sakura-shader", "builtin", (name), 1)
-#define attribute(semantic, i) clang::annotate("sakura-shader", "attribute", semantic, (#i))
-#define stage(name) clang::annotate("sakura-shader", "stage", (#name))
-#define stage_in clang::annotate("sakura-shader", "stage_in", "0")
-#define sv(semantic, ...) clang::annotate("sakura-shader", "sv", semantic, __VA_ARGS__)
-#define sv_position sv("position") 
-#define sv_target(i) sv("target", (i)) 
-
-[[builtin("sin")]] extern float sin(float rad);
-[[builtin("cos")]] extern float cos(float rad);
-
-struct [[builtin("float2")]] float2
-{
-    float2() = default;
-    float2(float x, float y) : x(x), y(y) {}
-    
-    float x = 0, y = 0;
-};
-
-struct [[builtin("float3")]] float3
-{
-    float3() = default;
-    float3(float x, float y, float z) : x(x), y(y), z(z) {}
-    float x = 0, y = 0, z = 0;
-};
-
-struct [[builtin("float4")]] float4
-{
-    float4() = default;
-    float4(float x, float y, float z, float w) : x(x), y(y), z(z), w(w) {}
-
-    float x = 0, y = 0, z = 0, w = 0;
-};
+#include "std.hpp"
 
 struct Vertex
 {
@@ -41,6 +8,12 @@ struct Vertex
 
     [[attribute("color", 1)]] 
     float3 color;
+};
+
+struct Instance
+{
+    [[attribute("transform", 3)]] 
+    float4x4 transform;
 };
 
 struct VertexOut
@@ -54,7 +27,8 @@ struct VertexOut
 
 // [[stage_in]] <=> [[stage_in(0)]]
 [[stage(vertex)]] 
-void vert_main([[stage_in]] Vertex vertex, [[sv_position]] float4& sv_pos)
+void vert_main([[stage_in(0)]] Vertex vertex, [[stage_in(1)]] Instance instance, 
+    [[sv_position]] float4& sv_pos)
 {
     sv_pos = vertex.position;
 }
@@ -63,7 +37,7 @@ template<typename type_t, int I>
 [[sv_target(I)]] type_t rtv;
 
 [[stage(fragment)]] 
-void frag_main([[sv_position]] float4 pos)
+void frag_main([[stage_in(0)]] VertexOut p, [[sv_position]] float4 pos)
 {
     rtv<float4, 0> = float4(1.f, 0.f, 0.f, 1.f);
     // rtv<float4, 2> = float4(1.f, 0.f, 0.f, 1.f);

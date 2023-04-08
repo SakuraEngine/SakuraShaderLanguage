@@ -18,7 +18,6 @@
 #include "OptionsParser.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Path.h"
-#include <fstream>
 #include <iostream>
 #include <memory>
 
@@ -42,7 +41,6 @@ static llvm::cl::opt<std::string> Output(
     llvm::cl::desc("Specify database output directory, depending on extension"),
     ToolCategory, llvm::cl::value_desc("directory"));
 
-static ssl::FileDataMap datamap;
 class SSLFrontendAction : public clang::ASTFrontendAction
 {
 public:
@@ -50,12 +48,15 @@ public:
 
     std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance& CI, llvm::StringRef InFile)
     {
+        auto OutputPath = Output.hasArgStr() ? Output.getValue() : "./";
         auto& PP = CI.getPreprocessor();
         clang::SourceManager& SM = PP.getSourceManager();
         auto& LO = CI.getLangOpts();
         LO.CommentOpts.ParseAllComments = true;
-        return std::make_unique<ssl::ASTConsumer>(datamap);
+        return std::make_unique<ssl::ASTConsumer>(OutputPath, datamap);
     }
+    
+    ssl::GlobalDataMap datamap;
 };
 
 int main(int argc, const char** argv)
@@ -75,21 +76,6 @@ int main(int argc, const char** argv)
         return 1;
     }
     ssl::OptionsParser& OptionsParser = ExpectedParser.get();
-    tooling::ClangTool Tool(OptionsParser.getCompilations(),
-    OptionsParser.getSourcePathList());
-    int result = Tool.run(tooling::newFrontendActionFactory<SSLFrontendAction>().get());
-    std::string OutPath;
-    OutPath = Output.hasArgStr() ? Output.getValue() : "./";
-    for (auto& pair : datamap)
-    {
-        using namespace llvm;
-        SmallString<1024> MetaPath(OutPath + pair.first);
-        sys::path::replace_extension(MetaPath, ".hlsl");
-        SmallString<1024> MetaDir = MetaPath;
-        sys::path::remove_filename(MetaDir);
-        llvm::sys::fs::create_directories(MetaDir);
-        std::ofstream of(MetaPath.str().str());
-        of << ssl::compile(pair.second);
-    }
-    return result;
+    tooling::ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
+    return Tool.run(tooling::newFrontendActionFactory<SSLFrontendAction>().get());
 }

@@ -13,7 +13,9 @@ struct BuiltinAttribute : public ShaderAttribute
     {
         return A->getKind() == ssl::kBuiltinShaderAttribute;
     }
-    
+
+    std::string getBuiltinName() const { return ShaderAttribute::GetStringArgFromAnnotate(_this, 0); }
+
     ssl::Declare* declare;
 };
 

@@ -18,4 +18,18 @@ struct StageAttribute : public ShaderAttribute
     ssl::Declare* declare;
 };
 
+struct StageInputAttribute : public ShaderAttribute
+{
+    StageInputAttribute(clang::AnnotateAttr* _this, ssl::Declare* declare);
+    
+    ShaderAttributeKind getKind() const override { return kStageInputAttribute; }
+
+    static bool classof(const ShaderAttribute* A)
+    {
+        return A->getKind() == ssl::kStageInputAttribute;
+    }
+
+    ssl::Declare* declare;
+};
+
 }

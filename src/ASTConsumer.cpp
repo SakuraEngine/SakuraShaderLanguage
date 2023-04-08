@@ -6,6 +6,8 @@
 #include "clang/AST/DeclTemplate.h"
 #include "Attributes/ShaderAttr.h"
 
+#include <fstream>
+
 void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
 {
     _ASTContext = &ctx;
@@ -15,7 +17,6 @@ void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
     {
         clang::NamedDecl* named_decl = llvm::dyn_cast<clang::NamedDecl>(*i);
         if (named_decl == 0) continue;
-
         // Filter out unsupported decls at the global namespace level
         clang::Decl::Kind kind = named_decl->getKind();
         std::vector<std::string> newStack;
@@ -23,10 +24,8 @@ void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
         {
             case (clang::Decl::Namespace):
             case (clang::Decl::CXXRecord):
-            case (clang::Decl::Function):
             case (clang::Decl::Enum):
             case (clang::Decl::ClassTemplate):
-            case (clang::Decl::ParmVar):
             case (clang::Decl::Field):
             case (clang::Decl::Var):
             case (clang::Decl::VarTemplateSpecialization):
@@ -35,6 +34,43 @@ void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
             default:
                 break;
         }
+    }
+    for (clang::DeclContext::decl_iterator i = tuDecl->decls_begin();
+        i != tuDecl->decls_end(); ++i)
+    {
+        clang::NamedDecl* named_decl = llvm::dyn_cast<clang::NamedDecl>(*i);
+        if (named_decl == 0) continue;
+        // Filter out unsupported decls at the global namespace level
+        clang::Decl::Kind kind = named_decl->getKind();
+        std::vector<std::string> newStack;
+        switch (kind)
+        {
+            case (clang::Decl::CXXRecord):
+            case (clang::Decl::Function):
+            case (clang::Decl::ParmVar):
+                HandleRecord(named_decl, newStack, PAR_NoReflect, nullptr);
+                break;
+            default:
+                break;
+        }
+    }
+
+    for (auto& iter : datamap.files)
+    {
+        auto& source = iter.second;
+        source->analyze(); 
+    }
+
+    for (auto& pair : datamap.files)
+    {
+        using namespace llvm;
+        SmallString<1024> MetaPath(OutputPath + pair.first().str());
+        sys::path::replace_extension(MetaPath, ".hlsl");
+        SmallString<1024> MetaDir = MetaPath;
+        sys::path::remove_filename(MetaDir);
+        llvm::sys::fs::create_directories(MetaDir);
+        std::ofstream of(MetaPath.str().str());
+        of << ssl::compile(*pair.second);
     }
 }
 
@@ -92,11 +128,11 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, std::vector<std::strin
     }
 
     // Locate DB
-    if (datamap.find(filename) == datamap.end())
+    if (datamap.files.find(filename) == datamap.files.end())
     {
-        datamap[filename] = SourceFile(location.getFilename(), filename);
+        datamap.files[filename] = std::make_unique<SourceFile>(location.getFilename(), filename);
     }
-    auto& db = datamap[filename];
+    auto& db = datamap.files[filename];
     if (auto templateDecl = llvm::dyn_cast<clang::ClassTemplateDecl>(decl))
     {
         if (auto inner = templateDecl->getTemplatedDecl())
@@ -111,12 +147,12 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, std::vector<std::strin
     {
     case clang::Decl::Function:
     {
-        declare = db.functions.emplace_back(new FunctionDeclare(attrDecl, filename));
+        declare = db->functions.emplace_back(new FunctionDeclare(attrDecl, db->abs_filename, &datamap));
         break;
     }
     case clang::Decl::CXXRecord:
     {
-        declare = db.structs.emplace_back(new StructDeclare(attrDecl, filename));
+        declare = db->structs.emplace_back(new StructDeclare(attrDecl, db->abs_filename, &datamap));
         break;
     }
     case clang::Decl::Var:
@@ -127,17 +163,21 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, std::vector<std::strin
             auto parent = tmpvar->getParentFunctionOrMethod();
             if (parent == nullptr)
             {
-                db.vars.emplace_back(new VarDeclare(attrDecl, filename));
+                db->vars.emplace_back(new VarDeclare(attrDecl, db->abs_filename, &datamap));
             }
-            else if (auto funcDecl = db.find(llvm::dyn_cast<clang::FunctionDecl>(parent)))
+            else if (auto funcDecl = db->find(llvm::dyn_cast<clang::FunctionDecl>(parent)))
             {
-                funcDecl->vars.emplace_back(new VarDeclare(attrDecl, filename));
+                funcDecl->vars.emplace_back(new VarDeclare(attrDecl, db->abs_filename, &datamap));
             }
         }
         break;
     }
     default: 
         break;
+    }
+    if (declare != nullptr)
+    {
+        datamap.declLocs[decl] = db->abs_filename;
     }
 }
 

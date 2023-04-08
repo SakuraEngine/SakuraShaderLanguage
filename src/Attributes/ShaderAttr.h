@@ -1,10 +1,10 @@
 #pragma once
 #include "clang/AST/ASTContext.h"
-#include "./../defines.h"
 #include <functional>
 
 namespace ssl
 {
+struct Declare;
 using ShaderAttributeKind = uint64_t;
 enum : uint64_t
 {
@@ -12,9 +12,10 @@ enum : uint64_t
     kStageShaderAttribute = 1u,
     kBuiltinShaderAttribute = 2u,
     kSVShaderAttribute = 3u,
+    kStageInputAttribute = 4u,
+    kAttributeAttribute = 5u,
     kLastShaderAttribute,
 };
-
 
 struct ShaderAttribute
 {

@@ -1,5 +1,5 @@
 #pragma once
-#include "defines.h"
+#include "Source.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/RecordLayout.h"
@@ -23,18 +23,20 @@ enum ParseBehavior
 class ASTConsumer : public clang::ASTConsumer
 {
 public:
-    ASTConsumer(FileDataMap& datamap)
-        : datamap(datamap)
+    ASTConsumer(std::string OutputPath, GlobalDataMap& datamap)
+        : OutputPath(OutputPath), datamap(datamap)
     {
     }
     void HandleTranslationUnit(ASTContext& ctx) override;
     ASTContext* GetContext() { return _ASTContext; }
-
+    const GlobalDataMap& GetDataMap() { return datamap; }
+    
 protected:
     void HandleDecl(clang::NamedDecl* decl, std::vector<std::string>& attrStack, ParseBehavior behavior, const clang::ASTRecordLayout* layout);
     void HandleRecord(clang::NamedDecl* decl, std::vector<std::string>& attrStack, ParseBehavior behavior, const clang::ASTRecordLayout* layout);
 
-    FileDataMap& datamap;
+    std::string OutputPath;
+    GlobalDataMap& datamap;
     ASTContext* _ASTContext;
 };
 } // namespace ssl

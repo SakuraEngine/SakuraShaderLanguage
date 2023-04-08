@@ -1,14 +1,42 @@
 #pragma once
-#include "./../defines.h"
+#include "./../Source.h"
 
 namespace ssl
 {
 namespace hlsl
 {
 
-struct HLSLStageInput
+enum class HLSLType : uint32_t
 {
-    
+    Float, Float2, Float3, Float4,
+    Int, Int2, Int3, Int4,
+    UInt, UInt2, UInt3, UInt4,
+    Float4x4,
+    Void,
+    Struct
+};
+
+const char* HLSLTypeToString(HLSLType type);
+HLSLType StringToHLSLType(const char* type);
+
+struct HLSLInput
+{
+    const AnalysisStageInput* ana;
+    uint64_t index;
+    std::string semantic;
+    HLSLType type;
+    std::string name;
+};
+
+struct HLSLStageInputs
+{
+    llvm::SmallVector<HLSLInput> all;
+};
+
+struct HLSLStage
+{
+    HLSLStageInputs inputs;
+    const AnalysisShaderStage* ana;
 };
 
 struct HLSLOptions
@@ -23,9 +51,10 @@ struct HLSLShaderLibrary
     std::string serialize() const;
     void translate();
 
+    void extractStageInputs();
+
     const SourceFile& f;
-    llvm::SmallVector<FunctionDeclare*> stages;
-    llvm::SmallVector<FunctionDeclare*> builtins;
+    llvm::SmallVector<HLSLStage> stages;
 };
 
 std::string compile(const SourceFile& P, const HLSLOptions& options = {});

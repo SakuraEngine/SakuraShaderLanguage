@@ -3,6 +3,7 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Tooling/Tooling.h"
+#include "./../Source.h"
 
 namespace ssl
 {
