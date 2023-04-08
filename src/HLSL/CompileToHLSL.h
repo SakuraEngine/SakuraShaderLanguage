@@ -8,6 +8,7 @@ namespace hlsl
 
 enum class HLSLType : uint32_t
 {
+    Unknown,
     Float, Float2, Float3, Float4,
     Int, Int2, Int3, Int4,
     UInt, UInt2, UInt3, UInt4,
@@ -28,14 +29,25 @@ struct HLSLInput
     std::string name;
 };
 
-struct HLSLStageInputs
+struct HLSLStageInput
 {
     llvm::SmallVector<HLSLInput> all;
 };
 
-struct HLSLStage
+struct HLSLStruct
 {
-    HLSLStageInputs inputs;
+    const char* getHLSLTypeName() const { return HLSLTypeName.c_str(); }
+
+protected:
+    std::string HLSLTypeName;
+};
+
+struct HLSLStage : public HLSLStruct
+{
+    HLSLStage(const AnalysisShaderStage* ana);
+
+    HLSLStageInput inputs;
+protected:
     const AnalysisShaderStage* ana;
 };
 
@@ -51,6 +63,9 @@ struct HLSLShaderLibrary
     std::string serialize() const;
     void translate();
 
+    void atomicExtractStageInputs(HLSLStage& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana);
+    void recursiveExtractStageInputs(HLSLStage& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana);
+    void recursiveExtractStageInputs(HLSLStage& hlslStage, const AnalysisStageInput* Ana);
     void extractStageInputs();
 
     const SourceFile& f;

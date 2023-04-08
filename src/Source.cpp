@@ -28,8 +28,32 @@ void SourceFile::analyze()
             newStage.function = function;
             for (auto param : function->getParameters())
             {
+                auto QualType = llvm::dyn_cast<clang::ParmVarDecl>(param->getDecl())->getType();
                 auto input_attrs = param->findAttributes(kStageInputAttribute);
-                if (input_attrs.size() > 0)
+                auto output_attrs = param->findAttributes(kStageOutputAttribute);
+                auto sv_attrs = param->findAttributes(kSVShaderAttribute);
+                (void)input_attrs; // TODO: extract input attributes
+                bool isOutput = QualType->isReferenceType(); // func(T& t), t must be an output
+                isOutput |= output_attrs.size(); // [[stage_out(i)]] T global; t must an output
+                isOutput &= !input_attrs.size(); // [[stage_in(i)]] T global; t must be an input
+                for (auto sv_attr : sv_attrs)
+                {
+                    auto semantic = sv_attr->GetStringArgFromAnnotate(0);
+                    if (semantic == "target")
+                    {
+                        isOutput = true;
+                    }
+                }
+                if (isOutput)
+                {
+                    if (auto asRef = QualType->getAs<clang::ReferenceType>())
+                        {
+                        newStage.outputs.emplace_back(
+                            AnalysisStageOutput{ param, nullptr, nullptr }
+                        );
+                    }
+                }
+                else
                 {
                     newStage.inputs.emplace_back(
                         AnalysisStageInput{ param, nullptr }

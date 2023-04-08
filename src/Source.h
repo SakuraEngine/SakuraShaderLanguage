@@ -16,10 +16,18 @@ struct AnalysisStageInput
     struct VarDeclare* as_var = nullptr;
 };
 
+struct AnalysisStageOutput
+{
+    struct ParameterDeclare* as_param = nullptr;
+    struct VarDeclare* as_var = nullptr;
+    struct RetValDeclare* as_retval = nullptr;
+};
+
 struct AnalysisShaderStage
 {
     struct FunctionDeclare* function = nullptr;
     llvm::SmallVector<AnalysisStageInput, 1> inputs;
+    llvm::SmallVector<AnalysisStageOutput, 1> outputs;
 };
 
 struct SourceAnalysis

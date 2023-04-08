@@ -13,7 +13,8 @@ enum : uint64_t
     kBuiltinShaderAttribute = 2u,
     kSVShaderAttribute = 3u,
     kStageInputAttribute = 4u,
-    kAttributeAttribute = 5u,
+    kStageOutputAttribute = 5u,
+    kAttributeAttribute = 6u,
     kLastShaderAttribute,
 };
 
@@ -50,6 +51,9 @@ public:
     static std::string GetTypeFromAnnotate(clang::AnnotateAttr* attr);
     static std::string GetStringArgFromAnnotate(clang::AnnotateAttr* attr, uint32_t index);
     static int64_t GetIntArgFromAnnotate(clang::AnnotateAttr* attr, uint32_t index);
+    std::string GetTypeFromAnnotate() const { return GetTypeFromAnnotate(_this); }
+    std::string GetStringArgFromAnnotate(uint32_t index) const { return GetStringArgFromAnnotate(_this, index); }
+    int64_t GetIntArgFromAnnotate(uint32_t index) const { return GetIntArgFromAnnotate(_this, index); }
 
     virtual ShaderAttributeKind getKind() const = 0;
 
