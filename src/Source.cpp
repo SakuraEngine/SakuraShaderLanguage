@@ -34,8 +34,8 @@ void SourceFile::analyze()
                 auto sv_attrs = param->findAttributes(kSVShaderAttribute);
                 (void)input_attrs; // TODO: extract input attributes
                 bool isOutput = QualType->isReferenceType(); // func(T& t), t must be an output
-                isOutput |= output_attrs.size(); // [[stage_out(i)]] T global; t must an output
-                isOutput &= !input_attrs.size(); // [[stage_in(i)]] T global; t must be an input
+                isOutput |= (bool)output_attrs.size(); // [[stage_out(i)]] T global; t must an output
+                isOutput &= !(bool)input_attrs.size(); // [[stage_in(i)]] T global; t must be an input
                 for (auto sv_attr : sv_attrs)
                 {
                     auto semantic = sv_attr->GetStringArgFromAnnotate(0);

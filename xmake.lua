@@ -8,6 +8,8 @@ local windows_llvm_version = "15.0.4"
 target("ssl-cc")
     set_runtimes("MD")
     set_kind("binary")
+    add_cxflags("/wd4624", "/wd4291", "/wd4018", {public=false})
+    add_cxflags("/execution-charset:utf-8","/source-charset:utf-8", {public=false})
     add_files("src/**.cpp")
     add_links("lib/**")
     add_links("Version", "advapi32", "Shcore", "user32", "shell32", "Ole32", {public = true})
@@ -30,6 +32,7 @@ target("ssl-cc")
     end)
     add_includedirs("llvm-"..windows_llvm_version.."-windows-amd64-msvc17-msvcrt/include")
     add_includedirs("clang-"..windows_llvm_version.."-windows-amd64-msvc17-msvcrt/include")
+
 else
 
 target("ssl-cc")

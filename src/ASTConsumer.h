@@ -32,8 +32,7 @@ public:
     const GlobalDataMap& GetDataMap() { return datamap; }
     
 protected:
-    void HandleDecl(clang::NamedDecl* decl, std::vector<std::string>& attrStack, ParseBehavior behavior, const clang::ASTRecordLayout* layout);
-    void HandleRecord(clang::NamedDecl* decl, std::vector<std::string>& attrStack, ParseBehavior behavior, const clang::ASTRecordLayout* layout);
+    void HandleDecl(clang::NamedDecl* decl, ParseBehavior behavior, const clang::ASTRecordLayout* layout);
 
     std::string OutputPath;
     GlobalDataMap& datamap;

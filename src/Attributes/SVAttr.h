@@ -18,6 +18,8 @@ struct SVAttribute : public ShaderAttribute
         return A->getKind() == ssl::kSVShaderAttribute;
     }
 
+    std::string getSemantic() const { return ShaderAttribute::GetStringArgFromAnnotate(_this, 0); }
+
     ssl::Declare* declare;
 };
 

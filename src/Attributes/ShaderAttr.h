@@ -1,11 +1,10 @@
 #pragma once
 #include "clang/AST/ASTContext.h"
+#include "./../Source.h"
 #include <functional>
 
 namespace ssl
 {
-struct Declare;
-using ShaderAttributeKind = uint64_t;
 enum : uint64_t
 {
     kFirstShaderAttribute = 0u,
@@ -15,6 +14,10 @@ enum : uint64_t
     kStageInputAttribute = 4u,
     kStageOutputAttribute = 5u,
     kAttributeAttribute = 6u,
+
+    kInternalAttributeStart = 1024u,
+    kRegCxxBuiltinAttribute = kInternalAttributeStart,
+
     kLastShaderAttribute,
 };
 
@@ -35,7 +38,7 @@ public:
     };
 
     template <typename T>
-    struct Store
+    struct Store : public Declare::InternalAccessor, public SourceFile::InternalAccessor
     {
         Store(std::string str, CreateFuntion func)
         {

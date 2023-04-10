@@ -19,35 +19,60 @@ enum class HLSLType : uint32_t
 
 const char* HLSLTypeToString(HLSLType type);
 HLSLType StringToHLSLType(const char* type);
+std::string GetSemanticVarName(const char* semantic);
 
-struct HLSLInput
+struct HLSLField
+{
+    friend struct HLSLShaderLibrary;
+    HLSLField() = default;
+    HLSLField(StructDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType);
+
+protected:
+    const StructDeclare* declType = nullptr;
+    const FieldDeclare* decl = nullptr;
+    struct HLSLStruct* structType = nullptr;
+
+    HLSLType type = HLSLType::Unknown;
+    std::string name = "";
+};
+
+struct HLSLInput : public HLSLField
 {
     const AnalysisStageInput* ana;
     uint64_t index;
     std::string semantic;
-    HLSLType type;
-    std::string name;
-};
-
-struct HLSLStageInput
-{
-    llvm::SmallVector<HLSLInput> all;
 };
 
 struct HLSLStruct
 {
+    virtual ~HLSLStruct() = default;
     const char* getHLSLTypeName() const { return HLSLTypeName.c_str(); }
 
 protected:
     std::string HLSLTypeName;
 };
 
-struct HLSLStage : public HLSLStruct
+struct HLSLPlainStruct : public HLSLStruct
 {
-    HLSLStage(const AnalysisShaderStage* ana);
+    friend struct HLSLShaderLibrary;
+    HLSLPlainStruct(const StructDeclare* decl);
 
-    HLSLStageInput inputs;
+    std::span<const HLSLField> getFields() const { return fields; }
+
 protected:
+    llvm::SmallVector<HLSLField> fields;
+    const StructDeclare* decl = nullptr;
+};
+
+struct HLSLFlatStageInput : public HLSLStruct
+{
+    friend struct HLSLShaderLibrary;
+    HLSLFlatStageInput(const AnalysisShaderStage* ana);
+
+    std::span<const HLSLInput> getFields() const { return fields; }
+
+protected:
+    llvm::SmallVector<HLSLInput> fields;
     const AnalysisShaderStage* ana;
 };
 
@@ -63,13 +88,23 @@ struct HLSLShaderLibrary
     std::string serialize() const;
     void translate();
 
-    void atomicExtractStageInputs(HLSLStage& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana);
-    void recursiveExtractStageInputs(HLSLStage& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana);
-    void recursiveExtractStageInputs(HLSLStage& hlslStage, const AnalysisStageInput* Ana);
+    // 1. extract all stage inputs
     void extractStageInputs();
+    std::string serializeStageInputs() const;
+    // 2. make structures
+    void makeStructures();
+    std::string serializeStructures() const;
+
+protected:
+    // 1.
+    void atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana);
+    void recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana);
+    void recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const AnalysisStageInput* Ana);
+    // 2.
 
     const SourceFile& f;
-    llvm::SmallVector<HLSLStage> stages;
+    llvm::SmallVector<HLSLFlatStageInput> stages;
+    llvm::SmallVector<HLSLPlainStruct> structures;
 };
 
 std::string compile(const SourceFile& P, const HLSLOptions& options = {});

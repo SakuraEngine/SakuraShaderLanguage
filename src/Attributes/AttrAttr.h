@@ -15,7 +15,6 @@ struct AttributeAttribute : public ShaderAttribute
     }
 
     std::string getSemantic() const { return ShaderAttribute::GetStringArgFromAnnotate(_this, 0); }
-    uint64_t getAttributeIndex() const { return ShaderAttribute::GetIntArgFromAnnotate(_this, 1); }
 
     ssl::Declare* declare;
 };

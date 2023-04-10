@@ -3,16 +3,16 @@
 
 struct Vertex
 {
-    [[attribute("position", 0)]] 
+    [[attribute("position")]] 
     float4 position;
 
-    [[attribute("color", 1)]] 
+    [[attribute("color")]] 
     float3 color;
 };
 
 struct Instance
 {
-    [[attribute("transform", 3)]] 
+    [[attribute("transform")]] 
     float4x4 transform;
 };
 
@@ -21,7 +21,7 @@ struct VertexOut
     [[sv("position")]] 
     float4 position;
 
-    [[attribute("color", 0)]] 
+    [[attribute("color")]] 
     float3 color;
 };
 
@@ -33,7 +33,7 @@ void vert_main([[stage_in(0)]] Vertex vertex, [[stage_in(1)]] Instance instance,
     sv_pos = vertex.position;
 }
 
-template<typename type_t, int I>
+template<typename type_t, cxx_int I>
 [[sv_target(I)]] type_t rtv;
 
 [[stage(fragment)]] 

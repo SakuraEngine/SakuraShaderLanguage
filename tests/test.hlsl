@@ -1,13 +1,23 @@
 struct vert_main_Inputs {
-    float4 position : POSITION;
-    float3 color : COLOR;
-    float4 data : DATA;
-    float4x4 transform : TRANSFORM;
+    float4 __ssl__POSITION : POSITION;
+    float3 __ssl__COLOR : COLOR;
+    float4x4 __ssl__TRANSFORM : TRANSFORM;
 };
 
 struct frag_main_Inputs {
-    float4 position : position;
-    float3 color : COLOR;
-    float4 pos : pos;
+    float4 __ssl__SV_POSITION : SV_POSITION;
+    float3 __ssl__COLOR : COLOR;
 };
 
+// used structures: Vertex, Instance, VertexOut, 
+struct Vertex {
+    float4 position;
+    float3 color;
+};
+struct Instance {
+    float4x4 transform;
+};
+struct VertexOut {
+    float4 position;
+    float3 color;
+};

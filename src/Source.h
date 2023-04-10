@@ -3,13 +3,14 @@
 #include <span>
 #include <unordered_map>
 #include "clang/AST/Decl.h"
-#include "Attributes/ShaderAttr.h"
 
 namespace clang { class NamedDecl; }
 namespace ssl { class ASTConsumer; struct ShaderAttribute; }
 
 namespace ssl
 {
+using ShaderAttributeKind = uint64_t;
+
 struct AnalysisStageInput
 {
     struct ParameterDeclare* as_param = nullptr;
@@ -47,6 +48,7 @@ struct SourceFile
 
     std::string_view getFilename() const { return filename; }
     std::string_view getAbsFilename() const { return abs_filename; }
+    // std::span<struct SourceFile* const> getIncludes() const { return includes; }
     std::span<struct StructDeclare* const> getStructs() const { return structs; }
     std::span<struct FunctionDeclare* const> getFunctions() const { return functions; }
 
@@ -54,11 +56,22 @@ struct SourceFile
     struct StructDeclare* find(clang::RecordDecl* decl) const;
     const SourceAnalysis& getAnalysis() const { return analysis; }
 
+    struct InternalAccessor
+    {
+        virtual ~InternalAccessor() = default;
+        llvm::SmallVector<struct StructDeclare*>& getTypeRegistry(SourceFile* src) 
+        {
+            return src->structs; 
+        }
+    };
+    friend struct InternalAccessor;
+
 protected:
     void analyze();
 
     std::string filename;
     std::string abs_filename;
+    // llvm::SmallVector<struct SourceFile*> includes;
     llvm::SmallVector<struct VarDeclare*> vars;
     llvm::SmallVector<struct FunctionDeclare*> functions;
     llvm::SmallVector<struct StructDeclare*> structs;
@@ -89,6 +102,12 @@ struct GlobalDataMap
     std::unordered_map<clang::Decl*, std::string> declLocs;
 };
 
+struct CxxBuiltinType
+{
+    CxxBuiltinType(const clang::BuiltinType* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    ~CxxBuiltinType();
+};
+
 struct Declare 
 {
     virtual ~Declare();
@@ -108,6 +127,14 @@ struct Declare
         auto raw = findAttribute(kind); 
         return raw ? llvm::dyn_cast<T>(raw) : nullptr; 
     }
+
+    struct InternalAccessor
+    {
+        virtual ~InternalAccessor() = default;
+        GlobalDataMap& getRoot(Declare* decl) { return *decl->root; }
+    };
+    friend struct InternalAccessor;
+
 protected:
     clang::Decl::Kind kind;
     clang::NamedDecl* decl = nullptr;
@@ -142,6 +169,9 @@ struct FieldDeclare : public Declare
         
     }
     StructDeclare* getStructDeclare() const;
+    // CxxBuiltinType* getCxxBuiltinType() const;
+protected:
+    // CxxBuiltinType* cxx_builtin = nullptr;
 };
 
 struct StructDeclare : public Declare

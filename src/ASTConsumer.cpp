@@ -10,6 +10,7 @@
 
 void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
 {
+    // 1. collect
     _ASTContext = &ctx;
     auto tuDecl = ctx.getTranslationUnitDecl();
     for (clang::DeclContext::decl_iterator i = tuDecl->decls_begin();
@@ -19,7 +20,6 @@ void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
         if (named_decl == 0) continue;
         // Filter out unsupported decls at the global namespace level
         clang::Decl::Kind kind = named_decl->getKind();
-        std::vector<std::string> newStack;
         switch (kind)
         {
             case (clang::Decl::Namespace):
@@ -29,7 +29,7 @@ void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
             case (clang::Decl::Field):
             case (clang::Decl::Var):
             case (clang::Decl::VarTemplateSpecialization):
-                HandleRecord(named_decl, newStack, PAR_NoReflect, nullptr);
+                HandleDecl(named_decl, PAR_NoReflect, nullptr);
                 break;
             default:
                 break;
@@ -42,19 +42,18 @@ void ssl::ASTConsumer::HandleTranslationUnit(ASTContext& ctx)
         if (named_decl == 0) continue;
         // Filter out unsupported decls at the global namespace level
         clang::Decl::Kind kind = named_decl->getKind();
-        std::vector<std::string> newStack;
         switch (kind)
         {
-            case (clang::Decl::CXXRecord):
             case (clang::Decl::Function):
             case (clang::Decl::ParmVar):
-                HandleRecord(named_decl, newStack, PAR_NoReflect, nullptr);
+                HandleDecl(named_decl, PAR_NoReflect, nullptr);
                 break;
             default:
                 break;
         }
     }
 
+    // 2. analyze
     for (auto& iter : datamap.files)
     {
         auto& source = iter.second;
@@ -107,7 +106,7 @@ std::string GetRawTypeName(clang::QualType type, clang::ASTContext* ctx)
     return baseName;
 }
 
-void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, std::vector<std::string>& attrStack, ParseBehavior behavior, const clang::ASTRecordLayout* layout)
+void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, ParseBehavior behavior, const clang::ASTRecordLayout* layout)
 {
     if (decl->isInvalidDecl()) return;
     clang::NamedDecl* attrDecl = decl;
@@ -145,6 +144,17 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, std::vector<std::strin
     ssl::Declare* declare = nullptr;
     switch (attrDecl->getKind())
     {
+    case (clang::Decl::Namespace):
+    {
+    clang::DeclContext *declContext = decl->castToDeclContext(decl);
+    for (clang::DeclContext::decl_iterator i = declContext->decls_begin();
+        i != declContext->decls_end(); ++i) 
+    {
+        clang::NamedDecl* _named_decl = llvm::dyn_cast<clang::NamedDecl>(*i);
+        HandleDecl(_named_decl, PAR_NoReflect, nullptr);
+    }
+    }
+    break;
     case clang::Decl::Function:
     {
         declare = db->functions.emplace_back(new FunctionDeclare(attrDecl, db->abs_filename, &datamap));
@@ -179,9 +189,4 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, std::vector<std::strin
     {
         datamap.declLocs[decl] = db->abs_filename;
     }
-}
-
-void ssl::ASTConsumer::HandleRecord(clang::NamedDecl* decl, std::vector<std::string>& attrStack, ParseBehavior behavior, const clang::ASTRecordLayout* layout)
-{
-    HandleDecl(decl, attrStack, behavior, layout);
 }

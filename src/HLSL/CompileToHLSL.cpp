@@ -2,6 +2,7 @@
 #include "../Attributes/BuiltinAttr.h"
 #include "../Attributes/StageAttr.h"
 #include "../Attributes/AttrAttr.h"
+#include "../Attributes/SvAttr.h"
 
 namespace ssl::hlsl
 {
@@ -45,7 +46,25 @@ HLSLType StringToHLSLType(const char* type)
     return HLSLType::Void;
 }
 
-HLSLStage::HLSLStage(const AnalysisShaderStage* ana)
+std::string GetSemanticVarName(const char* semantic)
+{
+    return std::string("__ssl__") + semantic;
+}
+
+HLSLField::HLSLField(StructDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType)
+    : declType(declType), decl(decl), structType(structType) 
+{
+    type = StringToHLSLType(declType->getDecl()->getNameAsString().c_str());
+    name = decl->getDecl()->getNameAsString();
+}
+
+HLSLPlainStruct::HLSLPlainStruct(const StructDeclare* decl)
+    : decl(decl)
+{
+    HLSLTypeName = decl->getDecl()->getNameAsString();
+}
+
+HLSLFlatStageInput::HLSLFlatStageInput(const AnalysisShaderStage* ana)
     : ana(ana)
 {
     auto fname = ana->function->getDecl()->getNameAsString();
@@ -58,101 +77,18 @@ HLSLShaderLibrary::HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& opt
 
 }
 
-void HLSLShaderLibrary::atomicExtractStageInputs(HLSLStage& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana)
-{
-    auto& hlslInputs = hlslStage.inputs;
-    auto& hlslInput = hlslInputs.all.emplace_back();
-    hlslInput.ana = Ana;
-    if (auto builtin = declType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute))
-    {
-        hlslInput.type = StringToHLSLType(builtin->getBuiltinName().c_str());
-    }
-    hlslInput.name = decl->getDecl()->getNameAsString();
-    if (auto attrAttr = decl->findAttribute<AttributeAttribute>(kAttributeAttribute))
-    {
-        hlslInput.index = attrAttr->getAttributeIndex();
-        hlslInput.semantic = attrAttr->getSemantic();
-        std::transform(hlslInput.semantic.begin(), hlslInput.semantic.end(), hlslInput.semantic.begin(), ::toupper);
-    }
-    else
-    {
-        hlslInput.index = 0u;
-        hlslInput.semantic = decl->getDecl()->getNameAsString();
-    }
-}
-
-void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLStage& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana)
-{
-    if (auto builtin = declType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute))
-    {
-        atomicExtractStageInputs(hlslStage, declType, decl, Ana);
-    }
-    else
-    {
-        for (auto field : declType->getFields())
-        {
-            auto fieldType = field->getStructDeclare();
-            if (auto builtin = fieldType ? fieldType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute) : nullptr)
-            {
-                atomicExtractStageInputs(hlslStage, fieldType, field, Ana);
-            }
-            else
-            {
-                recursiveExtractStageInputs(hlslStage, fieldType, field, Ana);
-            }
-        }
-    }
-}
-
-void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLStage& hlslStage, const AnalysisStageInput* Ana)
-{
-    if (auto paramType = Ana->as_param ? Ana->as_param->getStructDeclare() : nullptr)
-    {
-        recursiveExtractStageInputs(hlslStage, paramType, Ana->as_param, Ana);
-    }
-}
-
-void HLSLShaderLibrary::extractStageInputs()
-{
-    const auto& ana = f.getAnalysis();
-    for (auto stage : ana.stages)
-    {
-        auto& hlslStage = stages.emplace_back(&stage);
-        for (auto input : stage.inputs)
-        {
-            recursiveExtractStageInputs(hlslStage, &input);
-        }
-    }
-}
-
 void HLSLShaderLibrary::translate()
 {
     extractStageInputs();
+    makeStructures();
 }
 
 std::string HLSLShaderLibrary::serialize() const
 {
-    std::string result = "";
-    std::string stageInputs = "";
-    for (const auto& stage : stages)
-    {
-        stageInputs += "struct ";
-        stageInputs += stage.getHLSLTypeName();
-        stageInputs += " {";
-        for (auto input : stage.inputs.all)
-        {
-            stageInputs += "\n    ";
-            stageInputs += HLSLTypeToString(input.type);
-            stageInputs += " ";
-            stageInputs += input.name;
-            stageInputs += " : ";
-            stageInputs += input.semantic;
-            stageInputs += ";";
-        }
-        stageInputs += "\n};\n\n";
-    }
-    result += stageInputs;
-    return result;
+    std::string serialized = "";
+    serialized += serializeStageInputs();
+    serialized += serializeStructures();
+    return serialized;
 }
 
 std::string compile(const SourceFile& P, const HLSLOptions& options)
