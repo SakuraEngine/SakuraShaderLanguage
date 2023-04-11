@@ -12,8 +12,8 @@ SourceFile::~SourceFile()
 {
     for (auto function : functions)
         delete function;
-    for (auto structure : structs) 
-        delete structure;
+    for (auto type : types) 
+        delete type;
 }
 
 void SourceFile::analyze()
@@ -76,13 +76,13 @@ struct FunctionDeclare* SourceFile::find(clang::FunctionDecl* decl) const
     return nullptr;
 }
 
-struct StructDeclare* SourceFile::find(clang::RecordDecl* decl) const
+struct TypeDeclare* SourceFile::find(clang::RecordDecl* decl) const
 {
-    for (auto structure : structs)
+    for (auto type : types)
     {
-        if (structure->getDecl() == decl)
+        if (type->getDecl() == decl)
         {
-            return structure;
+            return type;
         }
     }
     return nullptr;
@@ -113,8 +113,20 @@ Declare::Declare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDa
     }
 }
 
-StructDeclare::StructDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
+TypeDeclare::TypeDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
     : Declare(decl, file_id, root)
+{
+
+}
+
+BuiltinDeclare::BuiltinDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
+    : TypeDeclare(decl, file_id, root)
+{
+
+}
+
+StructureDeclare::StructureDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
+    : TypeDeclare(decl, file_id, root)
 {
     if (auto record = llvm::dyn_cast<clang::RecordDecl>(decl))
     {
@@ -150,7 +162,15 @@ llvm::SmallVector<ShaderAttribute*> Declare::findAttributes(ShaderAttributeKind 
     return result;
 }
 
-StructDeclare::~StructDeclare()
+TypeDeclare::~TypeDeclare()
+{
+}
+
+BuiltinDeclare::~BuiltinDeclare()
+{
+}
+
+StructureDeclare::~StructureDeclare()
 {
     for (auto field : fields) delete field;
 }
@@ -170,11 +190,17 @@ VarTemplateDeclare::VarTemplateDeclare(clang::NamedDecl* decl, std::string_view 
     }
 }
 
-StructDeclare* FieldDeclare::getStructDeclare() const
+TypeDeclare* FieldDeclare::getTypeDeclare() const
 {
     if (auto field = llvm::dyn_cast<clang::FieldDecl>(decl))
     {
-        if (auto type = field->getType()->getAs<clang::RecordType>())
+        auto type = field->getType()->getAs<clang::RecordType>();
+        // decay
+        if (!type)
+            type = field->getType()->getPointeeType()->getAs<clang::RecordType>();
+        if (!type) 
+            type = field->getType().getNonReferenceType()->getAs<clang::RecordType>();
+        if (type)
         {
             if (auto record = type->getDecl())
             {
@@ -186,11 +212,17 @@ StructDeclare* FieldDeclare::getStructDeclare() const
     return nullptr;
 }
 
-StructDeclare* ParameterDeclare::getStructDeclare() const
+TypeDeclare* ParameterDeclare::getTypeDeclare() const
 {
     if (auto param = llvm::dyn_cast<clang::ParmVarDecl>(decl))
     {
-        if (auto type = param->getType()->getAs<clang::RecordType>())
+        auto type = param->getType()->getAs<clang::RecordType>();
+        // decay
+        if (!type) 
+            type = param->getType()->getPointeeType()->getAs<clang::RecordType>();
+        if (!type) 
+            type = param->getType().getNonReferenceType()->getAs<clang::RecordType>();
+        if (type)
         {
             if (auto record = type->getDecl())
             {

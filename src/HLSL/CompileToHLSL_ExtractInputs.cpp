@@ -7,7 +7,7 @@
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana)
+void HLSLShaderLibrary::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageInput* Ana)
 {
     auto& hlslInput = hlslStage.fields.emplace_back();
     hlslInput.ana = Ana;
@@ -35,17 +35,17 @@ void HLSLShaderLibrary::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, 
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, StructDeclare* declType, Declare* decl, const AnalysisStageInput* Ana)
+void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageInput* Ana)
 {
-    if (auto builtin = declType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute))
+    if (auto builtinType = llvm::dyn_cast<BuiltinDeclare>(declType))
     {
-        atomicExtractStageInputs(hlslStage, declType, decl, Ana);
+        atomicExtractStageInputs(hlslStage, builtinType, decl, Ana);
     }
-    else
+    else if (auto structType = llvm::dyn_cast<StructureDeclare>(declType))
     {
-        for (auto field : declType->getFields())
+        for (auto field : structType->getFields())
         {
-            auto fieldType = field->getStructDeclare();
+            auto fieldType = field->getTypeDeclare();
             if (auto builtin = fieldType ? fieldType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute) : nullptr)
             {
                 atomicExtractStageInputs(hlslStage, fieldType, field, Ana);
@@ -60,7 +60,7 @@ void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStag
 
 void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const AnalysisStageInput* Ana)
 {
-    if (auto paramType = Ana->as_param ? Ana->as_param->getStructDeclare() : nullptr)
+    if (auto paramType = Ana->as_param ? Ana->as_param->getTypeDeclare() : nullptr)
     {
         recursiveExtractStageInputs(hlslStage, paramType, Ana->as_param, Ana);
     }
@@ -72,14 +72,14 @@ void HLSLShaderLibrary::extractStageInputs()
     // extract
     for (auto stage : ana.stages)
     {
-        auto& hlslStage = stages.emplace_back(&stage);
+        auto& hlslStage = stage_inputs.emplace_back(&stage);
         for (auto input : stage.inputs)
         {
             recursiveExtractStageInputs(hlslStage, &input);
         }
     }
     // remove duplicates
-    for (auto& hlslStage : stages)
+    for (auto& hlslStage : stage_inputs)
     {
         auto fields = hlslStage.getFields();
         llvm::SmallVector<HLSLInput> unique;
@@ -101,9 +101,9 @@ void HLSLShaderLibrary::extractStageInputs()
 
 std::string HLSLShaderLibrary::serializeStageInputs() const
 {
-    std::string serialized = "";
+    std::string serialized = "// Stage Inputs\n";
     auto newline = [&]() { serialized += "\n    "; };
-    for (const auto& stage : stages)
+    for (const auto& stage : stage_inputs)
     {
         serialized += "struct ";
         serialized += stage.getHLSLTypeName();

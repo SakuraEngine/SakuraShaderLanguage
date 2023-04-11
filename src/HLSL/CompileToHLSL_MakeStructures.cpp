@@ -12,24 +12,27 @@ void HLSLShaderLibrary::makeStructures()
     const auto& source = f;
     const auto& ana = f.getAnalysis();
 
-    for (auto structure : source.getStructs())
+    for (auto type : source.getTypes())
     {
-        auto& s = structures.emplace_back(structure);
-        for (auto field : structure->getFields())
+        if (auto structure = llvm::dyn_cast<StructureDeclare>(type))
         {
-            auto fieldType = field->getStructDeclare();
-            if (!fieldType) continue;
-    
-            if (auto builtin = fieldType ? fieldType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute) : nullptr)
+            auto& s = structures.emplace_back(structure);
+            for (auto field : structure->getFields())
             {
-                s.fields.emplace_back(fieldType, field, nullptr);
+                auto fieldType = field->getTypeDeclare();
+                if (!fieldType) continue;
+        
+                if (auto builtin = fieldType ? fieldType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute) : nullptr)
+                {
+                    s.fields.emplace_back(fieldType, field, nullptr);
+                }
+                else
+                {
+                    s.fields.emplace_back(fieldType, field, nullptr);
+                }
             }
-            else
-            {
-                s.fields.emplace_back(fieldType, field, nullptr);
-            }
+            if (!s.fields.size()) structures.pop_back();
         }
-        if (!s.fields.size()) structures.pop_back();
     }
 }
 

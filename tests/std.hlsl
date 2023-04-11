@@ -1,1 +1,3 @@
-// used structures: float2, float3, float4, 
+// Stage Inputs
+// Stage Outputs
+// used structures: 

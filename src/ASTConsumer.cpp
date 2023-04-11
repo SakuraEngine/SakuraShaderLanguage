@@ -5,6 +5,7 @@
 #include "clang/Tooling/Tooling.h"
 #include "clang/AST/DeclTemplate.h"
 #include "Attributes/ShaderAttr.h"
+#include "clang/AST/Attr.h"
 
 #include <fstream>
 
@@ -106,6 +107,28 @@ std::string GetRawTypeName(clang::QualType type, clang::ASTContext* ctx)
     return baseName;
 }
 
+bool isBuiltin(clang::NamedDecl* decl)
+{
+    for (auto attr : decl->attrs())
+    {
+        for (auto annotate : decl->specific_attrs<clang::AnnotateAttr>())
+        {
+            if (annotate->getAnnotation() == "sakura-shader")
+            {
+                auto iter = annotate->args_begin();
+                if (iter != annotate->args_end())
+                {
+                    if (auto Literial = llvm::dyn_cast<clang::StringLiteral>((*iter)->IgnoreParenCasts()))
+                    {
+                        return Literial->getString() == "builtin";
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, ParseBehavior behavior, const clang::ASTRecordLayout* layout)
 {
     if (decl->isInvalidDecl()) return;
@@ -162,7 +185,14 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, ParseBehavior behavior
     }
     case clang::Decl::CXXRecord:
     {
-        declare = db->structs.emplace_back(new StructDeclare(attrDecl, db->abs_filename, &datamap));
+        if (isBuiltin(attrDecl))
+        {
+            declare = db->types.emplace_back(new BuiltinDeclare(attrDecl, db->abs_filename, &datamap));
+        }
+        else
+        {
+            declare = db->types.emplace_back(new StructureDeclare(attrDecl, db->abs_filename, &datamap));
+        }
         break;
     }
     case clang::Decl::Var:

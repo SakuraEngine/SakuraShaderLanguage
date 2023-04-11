@@ -51,14 +51,14 @@ std::string GetSemanticVarName(const char* semantic)
     return std::string("__ssl__") + semantic;
 }
 
-HLSLField::HLSLField(StructDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType)
+HLSLField::HLSLField(TypeDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType)
     : declType(declType), decl(decl), structType(structType) 
 {
     type = StringToHLSLType(declType->getDecl()->getNameAsString().c_str());
     name = decl->getDecl()->getNameAsString();
 }
 
-HLSLPlainStruct::HLSLPlainStruct(const StructDeclare* decl)
+HLSLPlainStruct::HLSLPlainStruct(const StructureDeclare* decl)
     : decl(decl)
 {
     HLSLTypeName = decl->getDecl()->getNameAsString();
@@ -71,6 +71,13 @@ HLSLFlatStageInput::HLSLFlatStageInput(const AnalysisShaderStage* ana)
     HLSLTypeName = fname + "_Inputs";
 }
 
+HLSLFlatStageOutput::HLSLFlatStageOutput(const AnalysisShaderStage* ana)
+    : ana(ana)
+{
+    auto fname = ana->function->getDecl()->getNameAsString();
+    HLSLTypeName = fname + "_Outputs";
+}
+
 HLSLShaderLibrary::HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& options)
     : f(f)
 {
@@ -80,6 +87,7 @@ HLSLShaderLibrary::HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& opt
 void HLSLShaderLibrary::translate()
 {
     extractStageInputs();
+    extractStageOutputs();
     makeStructures();
 }
 
@@ -87,6 +95,7 @@ std::string HLSLShaderLibrary::serialize() const
 {
     std::string serialized = "";
     serialized += serializeStageInputs();
+    serialized += serializeStageOutputs();
     serialized += serializeStructures();
     return serialized;
 }

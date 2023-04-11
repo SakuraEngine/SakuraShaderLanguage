@@ -59,7 +59,6 @@ public:
     int64_t GetIntArgFromAnnotate(uint32_t index) const { return GetIntArgFromAnnotate(_this, index); }
 
     virtual ShaderAttributeKind getKind() const = 0;
-
     static bool classof(const ShaderAttribute* A)
     {
         return A->getKind() >= ssl::kFirstShaderAttribute && A->getKind() <= ssl::kLastShaderAttribute;

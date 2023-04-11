@@ -95,6 +95,12 @@ struct [[builtin("float4x4")]] float4x4
     float4 _v[4];
 };
 
+template<typename E = void>
+struct [[builtin("Texture2D")]] Texture2D
+{
+
+};
+
 [[builtin("sin")]] extern float_t sin(float_t rad);
 [[builtin("cos")]] extern float_t cos(float_t rad);
 }

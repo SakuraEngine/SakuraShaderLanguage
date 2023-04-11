@@ -10,6 +10,7 @@ namespace ssl { class ASTConsumer; struct ShaderAttribute; }
 namespace ssl
 {
 using ShaderAttributeKind = uint64_t;
+using TypeDeclareKind = uint64_t;
 
 struct AnalysisStageInput
 {
@@ -49,19 +50,19 @@ struct SourceFile
     std::string_view getFilename() const { return filename; }
     std::string_view getAbsFilename() const { return abs_filename; }
     // std::span<struct SourceFile* const> getIncludes() const { return includes; }
-    std::span<struct StructDeclare* const> getStructs() const { return structs; }
+    std::span<struct TypeDeclare* const> getTypes() const { return types; }
     std::span<struct FunctionDeclare* const> getFunctions() const { return functions; }
 
     struct FunctionDeclare* find(clang::FunctionDecl* decl) const;
-    struct StructDeclare* find(clang::RecordDecl* decl) const;
+    struct TypeDeclare* find(clang::RecordDecl* decl) const;
     const SourceAnalysis& getAnalysis() const { return analysis; }
 
     struct InternalAccessor
     {
         virtual ~InternalAccessor() = default;
-        llvm::SmallVector<struct StructDeclare*>& getTypeRegistry(SourceFile* src) 
+        llvm::SmallVector<struct TypeDeclare*>& getTypeRegistry(SourceFile* src) 
         {
-            return src->structs; 
+            return src->types; 
         }
     };
     friend struct InternalAccessor;
@@ -74,13 +75,13 @@ protected:
     // llvm::SmallVector<struct SourceFile*> includes;
     llvm::SmallVector<struct VarDeclare*> vars;
     llvm::SmallVector<struct FunctionDeclare*> functions;
-    llvm::SmallVector<struct StructDeclare*> structs;
+    llvm::SmallVector<struct TypeDeclare*> types;
     SourceAnalysis analysis;
 };
 
 struct GlobalDataMap
 {
-    StructDeclare* find(clang::RecordDecl* decl) const
+    TypeDeclare* find(clang::RecordDecl* decl) const
     {
         auto file_id = declLocs.find(decl);
         if (file_id == declLocs.end()) return nullptr;
@@ -168,20 +169,62 @@ struct FieldDeclare : public Declare
     {
         
     }
-    StructDeclare* getStructDeclare() const;
+    TypeDeclare* getTypeDeclare() const;
     // CxxBuiltinType* getCxxBuiltinType() const;
 protected:
     // CxxBuiltinType* cxx_builtin = nullptr;
 };
 
-struct StructDeclare : public Declare
+enum : uint64_t
+{
+    kFirstTypeDeclareKind = 0u,
+    kTypeDeclare_Builtin = 1u,
+    kTypeDeclare_Structure = 2u,
+    kLastTypeDeclareKind,
+};
+
+struct TypeDeclare : public Declare
 {
     friend class ssl::ASTConsumer;
 
-    StructDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
-    ~StructDeclare();
+    TypeDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    ~TypeDeclare();
+
+    virtual TypeDeclareKind getKind() const = 0;
+    static bool classof(const TypeDeclare* T)
+    {
+        return T->getKind() >= ssl::kFirstTypeDeclareKind && T->getKind() <= ssl::kLastTypeDeclareKind;
+    }
+};
+
+struct BuiltinDeclare : public TypeDeclare
+{
+    friend class ssl::ASTConsumer;
+
+    BuiltinDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    ~BuiltinDeclare();
+
+    TypeDeclareKind getKind() const override { return kTypeDeclare_Builtin; }
+    static bool classof(const TypeDeclare* A)
+    {
+        return A->getKind() == ssl::kTypeDeclare_Builtin;
+    }
+};
+
+struct StructureDeclare : public TypeDeclare
+{
+    friend class ssl::ASTConsumer;
+
+    StructureDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    ~StructureDeclare();
 
     std::span<struct FieldDeclare* const> getFields() const { return fields; }
+
+    TypeDeclareKind getKind() const override { return kTypeDeclare_Structure; }
+    static bool classof(const TypeDeclare* A)
+    {
+        return A->getKind() == ssl::kTypeDeclare_Structure;
+    }
 protected:
     llvm::SmallVector<FieldDeclare*, 16> fields;
 };
@@ -193,7 +236,7 @@ struct ParameterDeclare : public Declare
     {
         
     }
-    StructDeclare* getStructDeclare() const;
+    TypeDeclare* getTypeDeclare() const;
 };
 
 struct FunctionDeclare : public Declare
