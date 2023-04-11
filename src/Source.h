@@ -25,11 +25,19 @@ struct AnalysisStageOutput
     struct RetValDeclare* as_retval = nullptr;
 };
 
+struct AnalysisSystemValue
+{
+    struct ParameterDeclare* as_param = nullptr;
+    struct VarDeclare* as_var = nullptr;
+    struct RetValDeclare* as_retval = nullptr;
+};
+
 struct AnalysisShaderStage
 {
     struct FunctionDeclare* function = nullptr;
     llvm::SmallVector<AnalysisStageInput, 1> inputs;
     llvm::SmallVector<AnalysisStageOutput, 1> outputs;
+    llvm::SmallVector<AnalysisSystemValue, 1> svs;
 };
 
 struct SourceAnalysis
@@ -55,6 +63,8 @@ struct SourceFile
 
     struct FunctionDeclare* find(clang::FunctionDecl* decl) const;
     struct TypeDeclare* find(clang::RecordDecl* decl) const;
+    struct VarDeclare* find(clang::ValueDecl* decl) const;
+
     const SourceAnalysis& getAnalysis() const { return analysis; }
 
     struct InternalAccessor
@@ -99,6 +109,15 @@ struct GlobalDataMap
         return _file->second->find(decl);
     }
 
+    VarDeclare* find(clang::ValueDecl* decl) const
+    {
+        auto file_id = declLocs.find(decl);
+        if (file_id == declLocs.end()) return nullptr;
+        auto _file = files.find(file_id->second);
+        if (_file == files.end()) return nullptr;
+        return _file->second->find(decl);
+    }
+
     llvm::StringMap<std::unique_ptr<SourceFile>> files;
     std::unordered_map<clang::Decl*, std::string> declLocs;
 };
@@ -120,7 +139,7 @@ struct Declare
     clang::Decl::Kind getKind() const { return kind; }
 
     std::span<struct ShaderAttribute* const> getAttributes() const { return attributes; }
-    llvm::SmallVector<ShaderAttribute*> findAttributes(ShaderAttributeKind kind);
+    llvm::SmallVector<ShaderAttribute*> findAttributes(ShaderAttributeKind kind) const;
     ShaderAttribute* findAttribute(ShaderAttributeKind kind);
     template<typename T>
     T* findAttribute(ShaderAttributeKind kind) 
@@ -128,6 +147,8 @@ struct Declare
         auto raw = findAttribute(kind); 
         return raw ? llvm::dyn_cast<T>(raw) : nullptr; 
     }
+
+    virtual void analyze(SourceFile* src) {}
 
     struct InternalAccessor
     {
@@ -147,11 +168,18 @@ protected:
 
 struct VarDeclare : public Declare
 {
-    VarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-        : Declare(decl, file_id, root)
-    {
-        
-    }
+    VarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    virtual ~VarDeclare();
+};
+
+struct GlobalVarDeclare : public VarDeclare
+{
+    GlobalVarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+};
+
+struct LocalVarDeclare : public VarDeclare
+{
+    LocalVarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
 };
 
 struct VarTemplateDeclare : public Declare
@@ -231,16 +259,14 @@ protected:
 
 struct ParameterDeclare : public Declare
 {
-    ParameterDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-        : Declare(decl, file_id, root)
-    {
-        
-    }
+    ParameterDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
     TypeDeclare* getTypeDeclare() const;
 };
 
 struct FunctionDeclare : public Declare
 {
+    friend class LocalVarRecorder;
+    friend class VarRWRecorder;
     friend class ssl::ASTConsumer;
 
     FunctionDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
@@ -248,10 +274,18 @@ struct FunctionDeclare : public Declare
 
     bool is(clang::FunctionDecl* decl) const { return this->decl == decl; }
     
-    std::span<struct VarDeclare* const> getVars() const { return vars; }
+    std::span<struct LocalVarDeclare* const> getLocalVars() const { return local_vars; }
     std::span<struct ParameterDeclare* const> getParameters() const { return parameters; }
+    std::span<struct VarDeclare* const> getReadVars() const { return read_vars; }
+    std::span<struct VarDeclare* const> getWriteVars() const { return write_vars; }
+
+    virtual void analyze(SourceFile* src) override;
+
+    LocalVarDeclare* findLocalVar(clang::NamedDecl* decl);
 protected:
-    llvm::SmallVector<VarDeclare*, 16> vars;
+    llvm::SmallVector<LocalVarDeclare*, 16> local_vars;
+    llvm::SmallVector<VarDeclare*, 16> read_vars;
+    llvm::SmallVector<VarDeclare*, 16> write_vars;
     llvm::SmallVector<ParameterDeclare*, 8> parameters;
 };
 

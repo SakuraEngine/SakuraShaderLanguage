@@ -16,6 +16,7 @@ struct vert_main_Outputs {
 };
 
 struct frag_main_Outputs {
+    float4 __ssl__SV_TARGET : SV_TARGET;
 };
 
 // used structures: Vertex, Instance, VertexOut, 

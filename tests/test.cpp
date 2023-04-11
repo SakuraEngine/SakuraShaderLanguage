@@ -41,11 +41,12 @@ VertexOut vert_main([[stage_in(0)]] Vertex vertex, [[stage_in(1)]] Instance inst
 template<typename type_t, cxx_int I>
 [[sv_target(I)]] type_t rtv;
 
-Texture2D tex;
+Texture2D<> tex;
 Texture2D<float4> tex2;
 
 [[stage(fragment)]] 
-void frag_main([[stage_in(0)]] VertexOut p, [[sv_position]] float4 pos)
+void frag_main([[stage_in(0)]] VertexOut p, [[sv_position]] float4 pos, 
+    [[sv_target(0)]] float4& target)
 {
     rtv<float4, 0> = p.color;
     // rtv<float4, 2> = float4(1.f, 0.f, 0.f, 1.f);

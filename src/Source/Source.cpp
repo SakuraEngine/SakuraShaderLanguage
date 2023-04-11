@@ -1,5 +1,5 @@
-#include "Source.h"
-#include "Attributes/ShaderAttr.h"
+#include "./../Source.h"
+#include "./../Attributes/ShaderAttr.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Stmt.h"
@@ -21,11 +21,17 @@ void SourceFile::analyze()
     // 1. Iterate and analyze all stages
     for (auto function : functions)
     {
+        // 1.0 analyze function signature
+        function->analyze(this);
+        // 1.1 extract system values
+        
+        // 1.2 generate input/output traits
         auto stage_attrs = function->findAttributes(kStageShaderAttribute);
         for (auto attr : stage_attrs)
         {
             auto& newStage = analysis.stages.emplace_back();
             newStage.function = function;
+            // 1.1 analyze inputs/outputs with function signature params
             for (auto param : function->getParameters())
             {
                 auto QualType = llvm::dyn_cast<clang::ParmVarDecl>(param->getDecl())->getType();
@@ -47,7 +53,7 @@ void SourceFile::analyze()
                 if (isOutput)
                 {
                     if (auto asRef = QualType->getAs<clang::ReferenceType>())
-                        {
+                    {
                         newStage.outputs.emplace_back(
                             AnalysisStageOutput{ param, nullptr, nullptr }
                         );
@@ -60,7 +66,13 @@ void SourceFile::analyze()
                     );
                 }
             }
+            // 1.2 analyze outputs with global variable r/ws
+            for (auto var : function->getWriteVars())
+            {
+
+            }
         }
+
     }
 }
 
@@ -83,6 +95,18 @@ struct TypeDeclare* SourceFile::find(clang::RecordDecl* decl) const
         if (type->getDecl() == decl)
         {
             return type;
+        }
+    }
+    return nullptr;
+}
+
+struct VarDeclare* SourceFile::find(clang::ValueDecl* decl) const
+{
+    for (auto var : vars)
+    {
+        if (var->getDecl() == decl)
+        {
+            return var;
         }
     }
     return nullptr;
@@ -113,30 +137,6 @@ Declare::Declare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDa
     }
 }
 
-TypeDeclare::TypeDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-    : Declare(decl, file_id, root)
-{
-
-}
-
-BuiltinDeclare::BuiltinDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-    : TypeDeclare(decl, file_id, root)
-{
-
-}
-
-StructureDeclare::StructureDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-    : TypeDeclare(decl, file_id, root)
-{
-    if (auto record = llvm::dyn_cast<clang::RecordDecl>(decl))
-    {
-        for (auto field : record->fields())
-        {
-            fields.emplace_back(new FieldDeclare(field, file_id, root));
-        }
-    }
-}
-
 ShaderAttribute* Declare::findAttribute(ShaderAttributeKind kind)
 {
     for (auto attr : attributes)
@@ -149,7 +149,7 @@ ShaderAttribute* Declare::findAttribute(ShaderAttributeKind kind)
     return nullptr;
 }
 
-llvm::SmallVector<ShaderAttribute*> Declare::findAttributes(ShaderAttributeKind kind)
+llvm::SmallVector<ShaderAttribute*> Declare::findAttributes(ShaderAttributeKind kind) const
 {
     llvm::SmallVector<ShaderAttribute*> result;
     for (auto attr : attributes)
@@ -160,19 +160,6 @@ llvm::SmallVector<ShaderAttribute*> Declare::findAttributes(ShaderAttributeKind 
         }
     }
     return result;
-}
-
-TypeDeclare::~TypeDeclare()
-{
-}
-
-BuiltinDeclare::~BuiltinDeclare()
-{
-}
-
-StructureDeclare::~StructureDeclare()
-{
-    for (auto field : fields) delete field;
 }
 
 VarTemplateDeclare::~VarTemplateDeclare()
@@ -210,46 +197,6 @@ TypeDeclare* FieldDeclare::getTypeDeclare() const
         return nullptr;
     }
     return nullptr;
-}
-
-TypeDeclare* ParameterDeclare::getTypeDeclare() const
-{
-    if (auto param = llvm::dyn_cast<clang::ParmVarDecl>(decl))
-    {
-        auto type = param->getType()->getAs<clang::RecordType>();
-        // decay
-        if (!type) 
-            type = param->getType()->getPointeeType()->getAs<clang::RecordType>();
-        if (!type) 
-            type = param->getType().getNonReferenceType()->getAs<clang::RecordType>();
-        if (type)
-        {
-            if (auto record = type->getDecl())
-            {
-                return root->find(record);
-            }
-        }
-        return nullptr;
-    }
-    return nullptr;
-}
-
-FunctionDeclare::FunctionDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-    : Declare(decl, file_id, root)
-{
-    if (auto function = llvm::dyn_cast<clang::FunctionDecl>(decl))
-    {
-        for (auto parameter : function->parameters())
-        {
-            parameters.emplace_back(new ParameterDeclare(parameter, file_id, root));
-        }
-    }
-}
-
-FunctionDeclare::~FunctionDeclare()
-{
-    for (auto parameter : parameters) delete parameter;
-    for (auto var : vars) delete var;
 }
 
 }

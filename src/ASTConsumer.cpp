@@ -152,7 +152,8 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, ParseBehavior behavior
     // Locate DB
     if (datamap.files.find(filename) == datamap.files.end())
     {
-        datamap.files[filename] = std::make_unique<SourceFile>(location.getFilename(), filename);
+        datamap.files[filename] = std::make_unique<SourceFile>(
+            location.getFilename(), filename);
     }
     auto& db = datamap.files[filename];
     if (auto templateDecl = llvm::dyn_cast<clang::ClassTemplateDecl>(decl))
@@ -203,11 +204,7 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, ParseBehavior behavior
             auto parent = tmpvar->getParentFunctionOrMethod();
             if (parent == nullptr)
             {
-                db->vars.emplace_back(new VarDeclare(attrDecl, db->abs_filename, &datamap));
-            }
-            else if (auto funcDecl = db->find(llvm::dyn_cast<clang::FunctionDecl>(parent)))
-            {
-                funcDecl->vars.emplace_back(new VarDeclare(attrDecl, db->abs_filename, &datamap));
+                declare = db->vars.emplace_back(new GlobalVarDeclare(attrDecl, db->abs_filename, &datamap));
             }
         }
         break;
