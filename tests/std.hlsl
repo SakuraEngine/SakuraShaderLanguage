@@ -1,4 +1,4 @@
-// 1. Stage Inputs
+// 1.Stage Inputs
 // 2. Stage Outputs
 // 3. Stage SystemValue accesses
 // 4. HLSL structures

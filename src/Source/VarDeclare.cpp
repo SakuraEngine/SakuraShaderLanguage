@@ -17,7 +17,7 @@ VarDeclare::VarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::Gl
     
 }
 
-TypeDeclare* VarDeclare::getTypeDeclare() const
+const TypeDeclare* VarDeclare::getTypeDeclare() const
 {
     if (auto var = llvm::dyn_cast<clang::VarDecl>(decl))
     {
@@ -37,6 +37,41 @@ TypeDeclare* VarDeclare::getTypeDeclare() const
         return nullptr;
     }
     return nullptr;
+}
+
+void VarDeclare::queryStageInOut(bool* in, bool* out) const
+{
+    auto QualType = llvm::dyn_cast<clang::ParmVarDecl>(this->getDecl())->getType();
+    auto input_attrs = this->findAttributes(kStageInputAttribute);
+    auto output_attrs = this->findAttributes(kStageOutputAttribute);
+    bool isOutput = QualType->isReferenceType(); // func(T& t), t must be an output
+    isOutput |= (bool)output_attrs.size(); // [[stage_out(i)]] T global; t must an output
+    isOutput &= !(bool)input_attrs.size(); // [[stage_in(i)]] T global; t must be an input
+    if (isOutput)
+    {
+        if (auto asRef = QualType->getAs<clang::ReferenceType>())
+        {
+            if (out) *out = true;
+        }
+    }
+    else
+    {
+        if (in) *in = true;
+    }
+}
+
+bool VarDeclare::isStageInput() const
+{
+    bool in = false, out = false;
+    queryStageInOut(&in, &out);
+    return in;
+}
+
+bool VarDeclare::isStageOutput() const
+{
+    bool in = false, out = false;
+    queryStageInOut(&in, &out);
+    return out;
 }
 
 GlobalVarDeclare::GlobalVarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)

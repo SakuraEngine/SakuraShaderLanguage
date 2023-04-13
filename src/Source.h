@@ -26,49 +26,86 @@ const char* getAccessTypeString(AccessType acess);
 
 struct AnalysisStageInput
 {
-    struct ParameterDeclare* as_param = nullptr;
-    struct VarDeclare* as_var = nullptr;
+    AnalysisStageInput() = default;
+    AnalysisStageInput(const struct ParameterDeclare* param) : as_param(param) { }
+    AnalysisStageInput(const struct VarDeclare* var) : as_var(var) { }
+
+    const struct TypedDeclare* getAsDeclare() const
+    {
+        if (as_param) return (const struct TypedDeclare*)as_param;
+        if (as_var) return (const struct TypedDeclare*)as_var;
+        return nullptr;
+    }
+    const struct ParameterDeclare* getAsParam() const { return as_param; }
+    const struct VarDeclare* getAsVar() const { return as_var; }
+    
+protected:
+    const struct ParameterDeclare* as_param = nullptr;
+    const struct VarDeclare* as_var = nullptr;
 };
 
 struct AnalysisStageOutput
 {
-    struct ParameterDeclare* as_param = nullptr;
-    struct VarDeclare* as_var = nullptr;
-    struct RetValDeclare* as_retval = nullptr;
+    AnalysisStageOutput() = default;
+    AnalysisStageOutput(const struct ParameterDeclare* param) : as_param(param) { }
+    AnalysisStageOutput(const struct VarDeclare* var) : as_var(var) { }
+    AnalysisStageOutput(const struct TypeDeclare* retval) : as_retval(retval) { }
+
+    const struct TypedDeclare* getAsDeclare() const
+    {
+        if (as_param) return (const struct TypedDeclare*)as_param;
+        if (as_var) return (const struct TypedDeclare*)as_var;
+        if (as_retval) return (const struct TypedDeclare*)as_retval;
+        return nullptr;
+    }
+    const struct ParameterDeclare* getAsParam() const { return as_param; }
+    const struct VarDeclare* getAsVar() const { return as_var; }
+    const struct TypeDeclare* getAsRetVal() const { return as_retval; }
+
+protected:
+    const struct ParameterDeclare* as_param = nullptr;
+    const struct VarDeclare* as_var = nullptr;
+    const struct TypeDeclare* as_retval = nullptr;
 };
 
 struct AnalysisSystemValues
 {
     AnalysisSystemValues() = default;
-    AnalysisSystemValues(struct ParameterDeclare* param, AccessType acess)
+    AnalysisSystemValues(const struct ParameterDeclare* param, AccessType acess)
         : as_param(param), acess(acess)
     {
     }
-    AnalysisSystemValues(struct VarDeclare* var, AccessType acess)
+    AnalysisSystemValues(const struct VarDeclare* var, AccessType acess)
         : as_var(var), acess(acess)
     {
     }
-    AnalysisSystemValues(struct RetValDeclare* retval, AccessType acess)
-        : as_retval(retval), acess(acess)
+    AnalysisSystemValues(const struct TypeDeclare* retval)
+        : as_retval(retval), acess(kAccessWriting)
     {
     }
 
-    struct TypedDeclare* getAsDeclare() const
+    const struct TypedDeclare* getAsDeclare() const
     {
-        if (as_param) return (struct TypedDeclare*)as_param;
-        if (as_var) return (struct TypedDeclare*)as_var;
-        if (as_retval) return (struct TypedDeclare*)as_retval;
+        if (as_param) return (const struct TypedDeclare*)as_param;
+        if (as_var) return (const struct TypedDeclare*)as_var;
+        if (as_retval) return (const struct TypedDeclare*)as_retval;
         return nullptr;
     }
-    struct ParameterDeclare* getAsParam() const { return as_param; }
-    struct VarDeclare* getAsVar() const { return as_var; }
-    struct RetValDeclare* getAsRetVal() const { return as_retval; }
+    const struct ParameterDeclare* getAsParam() const { return as_param; }
+    const struct VarDeclare* getAsVar() const { return as_var; }
+    const struct TypeDeclare* getAsRetVal() const { return as_retval; }
     AccessType getAcessType() const { return acess; }
 protected:
-    struct ParameterDeclare* as_param = nullptr;
-    struct VarDeclare* as_var = nullptr;
-    struct RetValDeclare* as_retval = nullptr;
+    const struct ParameterDeclare* as_param = nullptr;
+    const struct VarDeclare* as_var = nullptr;
+    const struct TypeDeclare* as_retval = nullptr;
     AccessType acess = kAcessTypeInvalid;
+};
+
+struct AnalysisShaderFunction
+{
+    struct FunctionDeclare* function = nullptr;
+    llvm::SmallVector<ParameterDeclare*, 8> parameters;
 };
 
 struct AnalysisShaderStage
@@ -82,6 +119,7 @@ struct AnalysisShaderStage
 struct SourceAnalysis
 {
     llvm::SmallVector<AnalysisShaderStage, 2> stages;
+    llvm::SmallVector<AnalysisShaderFunction, 2> functions;
 };
 
 struct SourceFile 
@@ -178,10 +216,10 @@ struct Declare
     clang::Decl::Kind getKind() const { return kind; }
 
     std::span<struct ShaderAttribute* const> getAttributes() const { return attributes; }
-    llvm::SmallVector<ShaderAttribute*> findAttributes(ShaderAttributeKind kind) const;
-    ShaderAttribute* findAttribute(ShaderAttributeKind kind);
+    const llvm::SmallVector<ShaderAttribute*> findAttributes(ShaderAttributeKind kind) const;
+    const ShaderAttribute* findAttribute(ShaderAttributeKind kind) const;
     template<typename T>
-    T* findAttribute(ShaderAttributeKind kind) 
+    const T* findAttribute(ShaderAttributeKind kind) const
     { 
         auto raw = findAttribute(kind); 
         return raw ? llvm::dyn_cast<T>(raw) : nullptr; 
@@ -213,7 +251,13 @@ enum : uint64_t
     kLastTypeDeclareKind,
 };
 
-struct TypeDeclare : public Declare
+struct TypedDeclare : public Declare
+{
+    TypedDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    virtual const TypeDeclare* getTypeDeclare() const = 0;
+};
+
+struct TypeDeclare : public TypedDeclare
 {
     friend class ssl::ASTConsumer;
 
@@ -224,6 +268,11 @@ struct TypeDeclare : public Declare
     static bool classof(const TypeDeclare* T)
     {
         return T->getKind() >= ssl::kFirstTypeDeclareKind && T->getKind() <= ssl::kLastTypeDeclareKind;
+    }
+    
+    const TypeDeclare* getTypeDeclare() const override
+    {
+        return this;
     }
 };
 
@@ -259,17 +308,16 @@ protected:
     llvm::SmallVector<FieldDeclare*, 16> fields;
 };
 
-struct TypedDeclare : public Declare
-{
-    TypedDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
-    virtual TypeDeclare* getTypeDeclare() const = 0;
-};
-
 struct VarDeclare : public TypedDeclare
 {
     VarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
     virtual ~VarDeclare();
-    TypeDeclare* getTypeDeclare() const;
+    const TypeDeclare* getTypeDeclare() const;
+
+    bool isStageInput() const;
+    bool isStageOutput() const;
+protected:
+    void queryStageInOut(bool* in, bool* out) const;
 };
 
 struct GlobalVarDeclare : public VarDeclare
@@ -297,13 +345,13 @@ struct FieldDeclare : public TypedDeclare
     {
         
     }
-    TypeDeclare* getTypeDeclare() const;
+    const TypeDeclare* getTypeDeclare() const;
 };
 
-struct ParameterDeclare : public TypedDeclare
+struct ParameterDeclare : public VarDeclare
 {
     ParameterDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
-    TypeDeclare* getTypeDeclare() const;
+    const TypeDeclare* getTypeDeclare() const;
 };
 
 struct FunctionDeclare : public Declare
@@ -320,6 +368,8 @@ struct FunctionDeclare : public Declare
     std::span<struct LocalVarDeclare* const> getLocalVars() const { return local_vars; }
     std::span<struct VarDeclare* const> getOutterVars() const { return outter_vars; }
     std::span<struct ParameterDeclare* const> getParameters() const { return parameters; }
+
+    const TypeDeclare* getReturnType() const;
 
     AccessType getAccessType(ParameterDeclare* param) const;
     AccessType getAccessType(VarDeclare* param) const;

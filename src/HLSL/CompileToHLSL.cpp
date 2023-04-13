@@ -51,7 +51,7 @@ std::string GetSemanticVarName(const char* semantic)
     return std::string("__ssl__") + semantic;
 }
 
-HLSLField::HLSLField(TypeDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType)
+HLSLField::HLSLField(const TypeDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType)
     : declType(declType), decl(decl), structType(structType) 
 {
     type = StringToHLSLType(declType->getDecl()->getNameAsString().c_str());

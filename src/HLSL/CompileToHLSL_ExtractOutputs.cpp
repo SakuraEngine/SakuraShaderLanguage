@@ -2,11 +2,12 @@
 #include "../Attributes/BuiltinAttr.h"
 #include "../Attributes/StageAttr.h"
 #include "../Attributes/AttrAttr.h"
+#include "../Attributes/SvAttr.h"
 
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageOutput* Ana)
+void HLSLShaderLibrary::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana)
 {
     HLSLOutput newOutput = {};
     newOutput.ana = Ana;
@@ -23,6 +24,12 @@ void HLSLShaderLibrary::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage
         std::transform(newOutput.semantic.begin(), newOutput.semantic.end(), newOutput.semantic.begin(), ::toupper);
         hlslStage.fields.emplace_back(newOutput);
     }
+    else if (auto svAttr = decl->findAttribute<SVAttribute>(kSVShaderAttribute))
+    {
+        newOutput.index = 0u;
+        newOutput.semantic = "SV_" + svAttr->getSemantic();
+        std::transform(newOutput.semantic.begin(), newOutput.semantic.end(), newOutput.semantic.begin(), ::toupper);
+    }
     else
     {
         newOutput.index = 0u;
@@ -31,7 +38,7 @@ void HLSLShaderLibrary::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageOutput* Ana)
+void HLSLShaderLibrary::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana)
 {
     if (auto builtinType = llvm::dyn_cast<BuiltinDeclare>(declType))
     {
@@ -56,9 +63,9 @@ void HLSLShaderLibrary::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslSt
 
 void HLSLShaderLibrary::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const AnalysisStageOutput* Ana)
 {
-    if (auto paramType = Ana->as_param ? Ana->as_param->getTypeDeclare() : nullptr)
+    if (auto decl = Ana->getAsDeclare())
     {
-        recursiveExtractStageOutputs(hlslStage, paramType, Ana->as_param, Ana);
+        recursiveExtractStageOutputs(hlslStage, decl->getTypeDeclare(), decl, Ana);
     }
 }
 

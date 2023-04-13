@@ -44,9 +44,7 @@ void SourceFile::analyze()
             auto sv_attrs = param->findAttributes(kSVShaderAttribute);
             for (auto sv_attr : sv_attrs)
             {
-                newStage.svs.emplace_back(
-                    param, function->getAccessType(param)
-                );
+                newStage.svs.emplace_back(param, function->getAccessType(param));
             }
         }
         for (auto var : function->getOutterVars())
@@ -64,32 +62,23 @@ void SourceFile::analyze()
         // analyze inputs/outputs with function signature params
         for (auto param : function->getParameters())
         {
-            auto QualType = llvm::dyn_cast<clang::ParmVarDecl>(param->getDecl())->getType();
-            auto input_attrs = param->findAttributes(kStageInputAttribute);
-            auto output_attrs = param->findAttributes(kStageOutputAttribute);
-            
             auto sv_attrs = param->findAttributes(kSVShaderAttribute);
             if (!sv_attrs.empty()) continue;
+            if (param->isStageInput()) newStage.inputs.emplace_back(param);            
+            if (param->isStageOutput()) newStage.outputs.emplace_back(param);            
+        }
+        for (auto var : function->getOutterVars())
+        {
+            auto sv_attrs = var->findAttributes(kSVShaderAttribute);
+            if (!sv_attrs.empty()) continue;
+            if (var->isStageInput()) newStage.inputs.emplace_back(var);            
+            if (var->isStageOutput()) newStage.outputs.emplace_back(var);            
+        }
 
-            (void)input_attrs; // TODO: extract input attributes
-            bool isOutput = QualType->isReferenceType(); // func(T& t), t must be an output
-            isOutput |= (bool)output_attrs.size(); // [[stage_out(i)]] T global; t must an output
-            isOutput &= !(bool)input_attrs.size(); // [[stage_in(i)]] T global; t must be an input
-            if (isOutput)
-            {
-                if (auto asRef = QualType->getAs<clang::ReferenceType>())
-                {
-                    newStage.outputs.emplace_back(
-                        AnalysisStageOutput{ param, nullptr, nullptr }
-                    );
-                }
-            }
-            else
-            {
-                newStage.inputs.emplace_back(
-                    AnalysisStageInput{ param, nullptr }
-                );
-            }
+        // 1.3 retval
+        if (auto retType = function->getReturnType())
+        {
+            newStage.outputs.emplace_back(retType);
         }
     }
 }
@@ -166,7 +155,7 @@ TypedDeclare::TypedDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl
 }
 
 
-ShaderAttribute* Declare::findAttribute(ShaderAttributeKind kind)
+const ShaderAttribute* Declare::findAttribute(ShaderAttributeKind kind) const
 {
     for (auto attr : attributes)
     {
@@ -178,7 +167,7 @@ ShaderAttribute* Declare::findAttribute(ShaderAttributeKind kind)
     return nullptr;
 }
 
-llvm::SmallVector<ShaderAttribute*> Declare::findAttributes(ShaderAttributeKind kind) const
+const llvm::SmallVector<ShaderAttribute*> Declare::findAttributes(ShaderAttributeKind kind) const
 {
     llvm::SmallVector<ShaderAttribute*> result;
     for (auto attr : attributes)
@@ -206,7 +195,7 @@ VarTemplateDeclare::VarTemplateDeclare(clang::NamedDecl* decl, std::string_view 
     }
 }
 
-TypeDeclare* FieldDeclare::getTypeDeclare() const
+const TypeDeclare* FieldDeclare::getTypeDeclare() const
 {
     if (auto field = llvm::dyn_cast<clang::FieldDecl>(decl))
     {

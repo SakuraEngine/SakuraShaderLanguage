@@ -62,6 +62,24 @@ FunctionDeclare::~FunctionDeclare()
     for (auto local_var : local_vars) delete local_var;
 }
 
+const TypeDeclare* FunctionDeclare::getReturnType() const
+{
+    if (auto function = llvm::dyn_cast<clang::FunctionDecl>(decl))
+    {
+        auto QualType = function->getReturnType();
+        auto pType = QualType.getTypePtr();
+        auto type = pType->getAs<clang::RecordType>();
+        if (!type) type = QualType.getNonReferenceType()->getAs<clang::RecordType>();
+        if (type)
+        {
+            if (auto record = type->getDecl())
+            {
+                return root->find(record);
+            }
+        }
+    }
+    return nullptr;
+}
 
 AccessType FunctionDeclare::getAccessType(ParameterDeclare* param) const
 {

@@ -7,7 +7,7 @@
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::atomicExtractStageSVs(HLSLFlatSVs& hlslSV, TypeDeclare* declType, Declare* decl, const AnalysisSystemValues* Ana)
+void HLSLShaderLibrary::atomicExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana)
 {
     HLSLSystemValue& newSV = hlslSV.fields.emplace_back();
     newSV.ana = Ana;
@@ -24,7 +24,7 @@ void HLSLShaderLibrary::atomicExtractStageSVs(HLSLFlatSVs& hlslSV, TypeDeclare* 
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, TypeDeclare* declType, Declare* decl, const AnalysisSystemValues* Ana)
+void HLSLShaderLibrary::recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana)
 {
     if (auto builtinType = llvm::dyn_cast<BuiltinDeclare>(declType))
     {

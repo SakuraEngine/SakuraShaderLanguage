@@ -25,7 +25,7 @@ struct HLSLField
 {
     friend struct HLSLShaderLibrary;
     HLSLField() = default;
-    HLSLField(TypeDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType);
+    HLSLField(const TypeDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType);
 
 protected:
     const TypeDeclare* declType = nullptr;
@@ -148,16 +148,16 @@ struct HLSLShaderLibrary
 
 protected:
     // 1.
-    void atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageInput* Ana);
-    void recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageInput* Ana);
+    void atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana);
+    void recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana);
     void recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const AnalysisStageInput* Ana);
     // 2.
-    void atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageOutput* Ana);
-    void recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageOutput* Ana);
+    void atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana);
+    void recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana);
     void recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const AnalysisStageOutput* Ana);
     // 3.
-    void atomicExtractStageSVs(HLSLFlatSVs& hlslSV, TypeDeclare* declType, Declare* decl, const AnalysisSystemValues* Ana);
-    void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, TypeDeclare* declType, Declare* decl, const AnalysisSystemValues* Ana);
+    void atomicExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana);
+    void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana);
     void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const AnalysisSystemValues* Ana);
 
     const SourceFile& f;

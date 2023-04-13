@@ -1,4 +1,4 @@
-// 1. Stage Inputs
+// 1.Stage Inputs
 struct vert_main_Inputs {
     float4 __ssl__POSITION : POSITION;
     float3 __ssl__COLOR : COLOR;
@@ -10,7 +10,9 @@ struct frag_main_Inputs {
 };
 
 // 2. Stage Outputs
-#define vert_main_Outputs void
+struct vert_main_Outputs {
+    float4 __ssl__COLOR : COLOR;
+};
 
 #define frag_main_Outputs void
 

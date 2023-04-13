@@ -7,7 +7,7 @@
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageInput* Ana)
+void HLSLShaderLibrary::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana)
 {
     auto& hlslInput = hlslStage.fields.emplace_back();
     hlslInput.ana = Ana;
@@ -35,7 +35,7 @@ void HLSLShaderLibrary::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, 
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageInput* Ana)
+void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana)
 {
     if (auto builtinType = llvm::dyn_cast<BuiltinDeclare>(declType))
     {
@@ -60,9 +60,9 @@ void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStag
 
 void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const AnalysisStageInput* Ana)
 {
-    if (auto paramType = Ana->as_param ? Ana->as_param->getTypeDeclare() : nullptr)
+    if (auto decl = Ana->getAsDeclare())
     {
-        recursiveExtractStageInputs(hlslStage, paramType, Ana->as_param, Ana);
+        recursiveExtractStageInputs(hlslStage, decl->getTypeDeclare(), decl, Ana);
     }
 }
 
@@ -101,7 +101,7 @@ void HLSLShaderLibrary::extractStageInputs()
 
 std::string HLSLShaderLibrary::serializeStageInputs() const
 {
-    std::string serialized = "// 1. Stage Inputs\n";
+    std::string serialized = "// 1.Stage Inputs\n";
     auto newline = [&]() { serialized += "\n    "; };
     for (const auto& stage : stage_inputs)
     {

@@ -7,12 +7,12 @@
 namespace ssl
 {
 ParameterDeclare::ParameterDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-    : TypedDeclare(decl, file_id, root)
+    : VarDeclare(decl, file_id, root)
 {
     
 }
 
-TypeDeclare* ParameterDeclare::getTypeDeclare() const
+const TypeDeclare* ParameterDeclare::getTypeDeclare() const
 {
     if (auto param = llvm::dyn_cast<clang::ParmVarDecl>(decl))
     {
