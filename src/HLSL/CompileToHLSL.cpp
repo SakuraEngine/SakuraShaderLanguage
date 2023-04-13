@@ -61,21 +61,34 @@ HLSLField::HLSLField(TypeDeclare* declType, const FieldDeclare* decl, struct HLS
 HLSLPlainStruct::HLSLPlainStruct(const StructureDeclare* decl)
     : decl(decl)
 {
-    HLSLTypeName = decl->getDecl()->getNameAsString();
+    auto fullName = decl->getDecl()->getQualifiedNameAsString();
+    // replace :: to __
+    std::replace(fullName.begin(), fullName.end(), ':', '_');
+    HLSLTypeName = fullName;
 }
 
 HLSLFlatStageInput::HLSLFlatStageInput(const AnalysisShaderStage* ana)
     : ana(ana)
 {
-    auto fname = ana->function->getDecl()->getNameAsString();
+    auto fname = ana->function->getDecl()->getQualifiedNameAsString();
+    std::replace(fname.begin(), fname.end(), ':', '_');
     HLSLTypeName = fname + "_Inputs";
 }
 
 HLSLFlatStageOutput::HLSLFlatStageOutput(const AnalysisShaderStage* ana)
     : ana(ana)
 {
-    auto fname = ana->function->getDecl()->getNameAsString();
+    auto fname = ana->function->getDecl()->getQualifiedNameAsString();
+    std::replace(fname.begin(), fname.end(), ':', '_');
     HLSLTypeName = fname + "_Outputs";
+}
+
+HLSLFlatSVs::HLSLFlatSVs(const AnalysisShaderStage* ana)
+    : ana(ana)
+{
+    auto fname = ana->function->getDecl()->getQualifiedNameAsString();
+    std::replace(fname.begin(), fname.end(), ':', '_');
+    HLSLTypeName = fname + "_SVs";
 }
 
 HLSLShaderLibrary::HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& options)
@@ -88,7 +101,10 @@ void HLSLShaderLibrary::translate()
 {
     extractStageInputs();
     extractStageOutputs();
+    extractStageSVs();
     makeStructures();
+    makeFunctions();
+    makeAssemblers();
 }
 
 std::string HLSLShaderLibrary::serialize() const
@@ -96,7 +112,10 @@ std::string HLSLShaderLibrary::serialize() const
     std::string serialized = "";
     serialized += serializeStageInputs();
     serialized += serializeStageOutputs();
+    serialized += serializeStageSVs();
     serialized += serializeStructures();
+    serialized += serializeFunctions();
+    serialized += serializeAssemblers();
     return serialized;
 }
 

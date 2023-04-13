@@ -14,6 +14,7 @@ enum : uint64_t
     kStageInputAttribute = 4u,
     kStageOutputAttribute = 5u,
     kAttributeAttribute = 6u,
+    kInputModifierAttribute = 7u,
 
     kInternalAttributeStart = 1024u,
     kRegCxxBuiltinAttribute = kInternalAttributeStart,

@@ -36,18 +36,25 @@ protected:
     std::string name = "";
 };
 
-struct HLSLInput : public HLSLField
+struct HLSLSemanticField : public HLSLField
 {
-    const AnalysisStageInput* ana;
     uint64_t index;
     std::string semantic;
 };
 
-struct HLSLOutput : public HLSLField
+struct HLSLSystemValue : public HLSLSemanticField
+{
+    const AnalysisSystemValues* ana;
+};
+
+struct HLSLInput : public HLSLSemanticField
+{
+    const AnalysisStageInput* ana;
+};
+
+struct HLSLOutput : public HLSLSemanticField
 {
     const AnalysisStageOutput* ana;
-    uint64_t index;
-    std::string semantic;
 };
 
 struct HLSLStruct
@@ -92,6 +99,17 @@ protected:
     const AnalysisShaderStage* ana;
 };
 
+struct HLSLFlatSVs : public HLSLStruct
+{
+    friend struct HLSLShaderLibrary;
+    HLSLFlatSVs(const AnalysisShaderStage* ana);
+
+    std::span<const HLSLSystemValue> getFields() const { return fields; }
+protected:
+    llvm::SmallVector<HLSLSystemValue> fields;
+    const AnalysisShaderStage* ana;
+};
+
 struct HLSLFunction
 {
 
@@ -115,12 +133,18 @@ struct HLSLShaderLibrary
     // 2. extract all stage outputs
     void extractStageOutputs();
     std::string serializeStageOutputs() const;
-    // 3. make structures
+    // 3. extract all stage sysval access
+    void extractStageSVs();
+    std::string serializeStageSVs() const;
+    // 4. make structures
     void makeStructures();
     std::string serializeStructures() const;
-    // 4. make functions
+    // 5. make functions
     void makeFunctions();
     std::string serializeFunctions() const;
+    // 6. make assemblers
+    void makeAssemblers();
+    std::string serializeAssemblers() const;
 
 protected:
     // 1.
@@ -132,10 +156,14 @@ protected:
     void recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageOutput* Ana);
     void recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const AnalysisStageOutput* Ana);
     // 3.
+    void atomicExtractStageSVs(HLSLFlatSVs& hlslSV, TypeDeclare* declType, Declare* decl, const AnalysisSystemValues* Ana);
+    void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, TypeDeclare* declType, Declare* decl, const AnalysisSystemValues* Ana);
+    void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const AnalysisSystemValues* Ana);
 
     const SourceFile& f;
     llvm::SmallVector<HLSLFlatStageInput> stage_inputs;
     llvm::SmallVector<HLSLFlatStageOutput> stage_outputs;
+    llvm::SmallVector<HLSLFlatSVs> stage_SVs;
     llvm::SmallVector<HLSLPlainStruct> structures;
 };
 

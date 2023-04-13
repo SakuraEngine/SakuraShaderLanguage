@@ -12,6 +12,18 @@ namespace ssl
 using ShaderAttributeKind = uint64_t;
 using TypeDeclareKind = uint64_t;
 
+enum AccessTypeFlags
+{
+    kAccessNone = 0x00,
+    kAccessReading = 0x0000001,
+    kAccessWriting = 0x0000002,
+    kAccessReadWrite = kAccessReading | kAccessWriting,
+    kAcessTypeInvalid = UINT32_MAX
+};
+using AccessType = uint32_t;
+
+const char* getAccessTypeString(AccessType acess);
+
 struct AnalysisStageInput
 {
     struct ParameterDeclare* as_param = nullptr;
@@ -25,11 +37,38 @@ struct AnalysisStageOutput
     struct RetValDeclare* as_retval = nullptr;
 };
 
-struct AnalysisSystemValue
+struct AnalysisSystemValues
 {
+    AnalysisSystemValues() = default;
+    AnalysisSystemValues(struct ParameterDeclare* param, AccessType acess)
+        : as_param(param), acess(acess)
+    {
+    }
+    AnalysisSystemValues(struct VarDeclare* var, AccessType acess)
+        : as_var(var), acess(acess)
+    {
+    }
+    AnalysisSystemValues(struct RetValDeclare* retval, AccessType acess)
+        : as_retval(retval), acess(acess)
+    {
+    }
+
+    struct TypedDeclare* getAsDeclare() const
+    {
+        if (as_param) return (struct TypedDeclare*)as_param;
+        if (as_var) return (struct TypedDeclare*)as_var;
+        if (as_retval) return (struct TypedDeclare*)as_retval;
+        return nullptr;
+    }
+    struct ParameterDeclare* getAsParam() const { return as_param; }
+    struct VarDeclare* getAsVar() const { return as_var; }
+    struct RetValDeclare* getAsRetVal() const { return as_retval; }
+    AccessType getAcessType() const { return acess; }
+protected:
     struct ParameterDeclare* as_param = nullptr;
     struct VarDeclare* as_var = nullptr;
     struct RetValDeclare* as_retval = nullptr;
+    AccessType acess = kAcessTypeInvalid;
 };
 
 struct AnalysisShaderStage
@@ -37,7 +76,7 @@ struct AnalysisShaderStage
     struct FunctionDeclare* function = nullptr;
     llvm::SmallVector<AnalysisStageInput, 1> inputs;
     llvm::SmallVector<AnalysisStageOutput, 1> outputs;
-    llvm::SmallVector<AnalysisSystemValue, 1> svs;
+    llvm::SmallVector<AnalysisSystemValues> svs;
 };
 
 struct SourceAnalysis
@@ -166,43 +205,6 @@ protected:
     std::string _debug_name = "uninitialized";
 };
 
-struct VarDeclare : public Declare
-{
-    VarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
-    virtual ~VarDeclare();
-};
-
-struct GlobalVarDeclare : public VarDeclare
-{
-    GlobalVarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
-};
-
-struct LocalVarDeclare : public VarDeclare
-{
-    LocalVarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
-};
-
-struct VarTemplateDeclare : public Declare
-{
-    VarTemplateDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
-    ~VarTemplateDeclare();
-
-    VarDeclare* var = nullptr;
-};
-
-struct FieldDeclare : public Declare
-{
-    FieldDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-        : Declare(decl, file_id, root)
-    {
-        
-    }
-    TypeDeclare* getTypeDeclare() const;
-    // CxxBuiltinType* getCxxBuiltinType() const;
-protected:
-    // CxxBuiltinType* cxx_builtin = nullptr;
-};
-
 enum : uint64_t
 {
     kFirstTypeDeclareKind = 0u,
@@ -257,7 +259,48 @@ protected:
     llvm::SmallVector<FieldDeclare*, 16> fields;
 };
 
-struct ParameterDeclare : public Declare
+struct TypedDeclare : public Declare
+{
+    TypedDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    virtual TypeDeclare* getTypeDeclare() const = 0;
+};
+
+struct VarDeclare : public TypedDeclare
+{
+    VarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    virtual ~VarDeclare();
+    TypeDeclare* getTypeDeclare() const;
+};
+
+struct GlobalVarDeclare : public VarDeclare
+{
+    GlobalVarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+};
+
+struct LocalVarDeclare : public VarDeclare
+{
+    LocalVarDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+};
+
+struct VarTemplateDeclare : public Declare
+{
+    VarTemplateDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
+    ~VarTemplateDeclare();
+
+    VarDeclare* var = nullptr;
+};
+
+struct FieldDeclare : public TypedDeclare
+{
+    FieldDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
+        : TypedDeclare(decl, file_id, root)
+    {
+        
+    }
+    TypeDeclare* getTypeDeclare() const;
+};
+
+struct ParameterDeclare : public TypedDeclare
 {
     ParameterDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
     TypeDeclare* getTypeDeclare() const;
@@ -266,7 +309,7 @@ struct ParameterDeclare : public Declare
 struct FunctionDeclare : public Declare
 {
     friend class LocalVarRecorder;
-    friend class VarRWRecorder;
+    friend class VarRecorder;
     friend class ssl::ASTConsumer;
 
     FunctionDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root);
@@ -275,18 +318,19 @@ struct FunctionDeclare : public Declare
     bool is(clang::FunctionDecl* decl) const { return this->decl == decl; }
     
     std::span<struct LocalVarDeclare* const> getLocalVars() const { return local_vars; }
+    std::span<struct VarDeclare* const> getOutterVars() const { return outter_vars; }
     std::span<struct ParameterDeclare* const> getParameters() const { return parameters; }
-    std::span<struct VarDeclare* const> getReadVars() const { return read_vars; }
-    std::span<struct VarDeclare* const> getWriteVars() const { return write_vars; }
+
+    AccessType getAccessType(ParameterDeclare* param) const;
+    AccessType getAccessType(VarDeclare* param) const;
 
     virtual void analyze(SourceFile* src) override;
 
-    LocalVarDeclare* findLocalVar(clang::NamedDecl* decl);
 protected:
     llvm::SmallVector<LocalVarDeclare*, 16> local_vars;
-    llvm::SmallVector<VarDeclare*, 16> read_vars;
-    llvm::SmallVector<VarDeclare*, 16> write_vars;
+    llvm::SmallVector<VarDeclare*, 16> outter_vars;
     llvm::SmallVector<ParameterDeclare*, 8> parameters;
+    // llvm::SmallVector<LocalVarDeclare*, 8> param_vars;
 };
 
 std::string compile(const SourceFile& P);

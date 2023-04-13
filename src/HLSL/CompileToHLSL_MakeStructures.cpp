@@ -40,7 +40,8 @@ std::string HLSLShaderLibrary::serializeStructures() const
 {
     std::string serialized = "";
     // comment structures
-    serialized += "// used structures: ";
+    serialized += "// 4. HLSL structures\n";
+    serialized += "//    used structures: ";
     uint32_t c = 0;
     for (const auto& structure : structures)
     {

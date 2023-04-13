@@ -87,26 +87,6 @@ void Join(std::string& a, const std::string& b)
     a += b;
 }
 
-std::string GetTypeName(clang::QualType type, clang::ASTContext* ctx)
-{
-    type = type.getCanonicalType();
-    auto baseName = type.getAsString(ctx->getLangOpts());
-    Remove(baseName, "struct ");
-    Remove(baseName, "class ");
-    return baseName;
-}
-
-std::string GetRawTypeName(clang::QualType type, clang::ASTContext* ctx)
-{
-    if (type->isPointerType() || type->isReferenceType())
-        type = type->getPointeeType();
-    type = type.getUnqualifiedType();
-    auto baseName = type.getAsString(ctx->getLangOpts());
-    Remove(baseName, "struct ");
-    Remove(baseName, "class ");
-    return baseName;
-}
-
 bool isBuiltin(clang::NamedDecl* decl)
 {
     for (auto attr : decl->attrs())
@@ -181,18 +161,24 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, ParseBehavior behavior
     break;
     case clang::Decl::Function:
     {
-        declare = db->functions.emplace_back(new FunctionDeclare(attrDecl, db->abs_filename, &datamap));
+        declare = db->functions.emplace_back(
+            new FunctionDeclare(attrDecl, db->abs_filename, &datamap)
+        );
         break;
     }
     case clang::Decl::CXXRecord:
     {
         if (isBuiltin(attrDecl))
         {
-            declare = db->types.emplace_back(new BuiltinDeclare(attrDecl, db->abs_filename, &datamap));
+            declare = db->types.emplace_back(
+                new BuiltinDeclare(attrDecl, db->abs_filename, &datamap)
+            );
         }
         else
         {
-            declare = db->types.emplace_back(new StructureDeclare(attrDecl, db->abs_filename, &datamap));
+            declare = db->types.emplace_back(
+                new StructureDeclare(attrDecl, db->abs_filename, &datamap)
+            );
         }
         break;
     }
@@ -204,16 +190,14 @@ void ssl::ASTConsumer::HandleDecl(clang::NamedDecl* decl, ParseBehavior behavior
             auto parent = tmpvar->getParentFunctionOrMethod();
             if (parent == nullptr)
             {
-                declare = db->vars.emplace_back(new GlobalVarDeclare(attrDecl, db->abs_filename, &datamap));
+                declare = db->vars.emplace_back(
+                    new GlobalVarDeclare(attrDecl, db->abs_filename, &datamap)
+                );
             }
         }
         break;
     }
     default: 
         break;
-    }
-    if (declare != nullptr)
-    {
-        datamap.declLocs[decl] = db->abs_filename;
     }
 }

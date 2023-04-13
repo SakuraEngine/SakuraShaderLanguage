@@ -7,7 +7,7 @@
 namespace ssl
 {
 ParameterDeclare::ParameterDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
-    : Declare(decl, file_id, root)
+    : TypedDeclare(decl, file_id, root)
 {
     
 }

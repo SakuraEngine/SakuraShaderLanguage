@@ -2,37 +2,32 @@
 #include "../Attributes/BuiltinAttr.h"
 #include "../Attributes/StageAttr.h"
 #include "../Attributes/AttrAttr.h"
-#include "../Attributes/SvAttr.h"
 
 namespace ssl::hlsl
 {
 
 void HLSLShaderLibrary::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, TypeDeclare* declType, Declare* decl, const AnalysisStageOutput* Ana)
 {
-    auto& hlslOutput = hlslStage.fields.emplace_back();
-    hlslOutput.ana = Ana;
+    HLSLOutput newOutput = {};
+    newOutput.ana = Ana;
     if (auto builtin = declType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute))
     {
-        hlslOutput.type = StringToHLSLType(builtin->getBuiltinName().c_str());
+        newOutput.type = StringToHLSLType(builtin->getBuiltinName().c_str());
     }
-    hlslOutput.name = decl->getDecl()->getNameAsString();
+    newOutput.name = decl->getDecl()->getNameAsString();
 
     if (auto attrAttr = decl->findAttribute<AttributeAttribute>(kAttributeAttribute))
     {
-        hlslOutput.index = 0u;
-        hlslOutput.semantic = attrAttr->getSemantic();
-        std::transform(hlslOutput.semantic.begin(), hlslOutput.semantic.end(), hlslOutput.semantic.begin(), ::toupper);
-    }
-    else if (auto svAttr = decl->findAttribute<SVAttribute>(kSVShaderAttribute))
-    {
-        hlslOutput.index = 0u;
-        hlslOutput.semantic = "SV_" + svAttr->getSemantic();
-        std::transform(hlslOutput.semantic.begin(), hlslOutput.semantic.end(), hlslOutput.semantic.begin(), ::toupper);
+        newOutput.index = 0u;
+        newOutput.semantic = attrAttr->getSemantic();
+        std::transform(newOutput.semantic.begin(), newOutput.semantic.end(), newOutput.semantic.begin(), ::toupper);
+        hlslStage.fields.emplace_back(newOutput);
     }
     else
     {
-        hlslOutput.index = 0u;
-        hlslOutput.semantic = decl->getDecl()->getNameAsString();
+        newOutput.index = 0u;
+        newOutput.semantic = decl->getDecl()->getNameAsString();
+        hlslStage.fields.emplace_back(newOutput);
     }
 }
 
@@ -103,24 +98,34 @@ void HLSLShaderLibrary::extractStageOutputs()
 
 std::string HLSLShaderLibrary::serializeStageOutputs() const
 {
-    std::string serialized = "// Stage Outputs\n";
+    std::string serialized = "// 2. Stage Outputs\n";
     auto newline = [&]() { serialized += "\n    "; };
     for (const auto& stage : stage_outputs)
     {
-        serialized += "struct ";
-        serialized += stage.getHLSLTypeName();
-        serialized += " {";
-        for (auto output : stage.getFields())
+        const auto& fields = stage.getFields();
+        if (!fields.empty())
         {
-            newline();
-            serialized += HLSLTypeToString(output.type);
-            serialized += " ";
-            serialized += GetSemanticVarName(output.semantic.c_str());
-            serialized += " : ";
-            serialized += output.semantic;
-            serialized += ";";
+            serialized += "struct ";
+            serialized += stage.getHLSLTypeName();
+            serialized += " {";
+            for (auto output : fields)
+            {
+                newline();
+                serialized += HLSLTypeToString(output.type);
+                serialized += " ";
+                serialized += GetSemanticVarName(output.semantic.c_str());
+                serialized += " : ";
+                serialized += output.semantic;
+                serialized += ";";
+            }
+            serialized += "\n};\n\n";
         }
-        serialized += "\n};\n\n";
+        else
+        {
+            serialized += "#define ";
+            serialized += stage.getHLSLTypeName();
+            serialized += " void\n\n";
+        }
     }
     return serialized;
 }

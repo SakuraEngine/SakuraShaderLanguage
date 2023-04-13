@@ -1,5 +1,6 @@
 #include "./../Source.h"
 #include "./../Attributes/ShaderAttr.h"
+#include "./../Attributes/InputModifierAttr.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 
 #include <iostream>
@@ -20,8 +21,20 @@ public:
             );
         }
         return true;
+    }    
+
+    /*
+    bool VisitDeclRefExpr(clang::DeclRefExpr* expr)
+    {
+        if (auto param_var = llvm::dyn_cast<clang::ParmVarDecl>(expr->getDecl()))
+        {
+            func->param_vars.emplace_back(
+                new LocalVarDeclare(param_var, func->file_id, func->root)
+            );
+        }
+        return true;
     }
-    // bool VisitDeclRefExpr(clang::DeclRefExpr* expr);
+    */
 private:
     FunctionDeclare* func;
 };
@@ -49,35 +62,55 @@ FunctionDeclare::~FunctionDeclare()
     for (auto local_var : local_vars) delete local_var;
 }
 
-LocalVarDeclare* FunctionDeclare::findLocalVar(clang::NamedDecl* decl)
+
+AccessType FunctionDeclare::getAccessType(ParameterDeclare* param) const
 {
-    for (auto var : local_vars)
+    AccessType t = kAccessNone;
+    if (auto input_modifier = param->findAttribute<InputModifierAttribute>(kInputModifierAttribute))
     {
-        if (var->getDecl() == decl)
+        t = input_modifier->getAcessType();
+        if (t != kAccessNone && t != kAcessTypeInvalid)
         {
-            return var;
+            return t;
         }
     }
-    return nullptr;
+    if (auto pdecl = llvm::dyn_cast<clang::ParmVarDecl>(param->getDecl()))
+    {
+        if (pdecl->getType()->isReferenceType()) return kAccessWriting;
+        return kAccessReading;
+    }
+    return t;
 }
 
-class VarRWRecorder : public clang::RecursiveASTVisitor<VarRWRecorder>
+AccessType FunctionDeclare::getAccessType(VarDeclare* var) const
+{
+    AccessType t = kAccessNone;
+    if (auto input_modifier = var->findAttribute<InputModifierAttribute>(kInputModifierAttribute))
+    {
+        t = input_modifier->getAcessType();
+        if (t != kAccessNone && t != kAcessTypeInvalid)
+        {
+            return t;
+        }
+    }        
+    if (auto vdecl = llvm::dyn_cast<clang::VarDecl>(var->getDecl()))
+    {
+        if (vdecl->getType()->isReferenceType()) return kAccessWriting;
+        return kAccessReading;
+    }
+    return t;
+}
+
+class VarRecorder : public clang::RecursiveASTVisitor<VarRecorder>
 {
 public:
-    VarRWRecorder(FunctionDeclare* func) : func(func) {}
+    VarRecorder(FunctionDeclare* func) : func(func) {}
     bool VisitDeclRefExpr(clang::DeclRefExpr* expr)
     {
         auto value_decl = llvm::dyn_cast<clang::VarDecl>(expr->getDecl());
         if (auto var = func->root->find(value_decl))
         {
-            if (expr->isLValue())
-            {
-                func->write_vars.emplace_back(var);
-            }
-            else
-            {
-                func->read_vars.emplace_back(var);
-            }
+            func->outter_vars.emplace_back(var);
         }
         return true;
     }
@@ -89,7 +122,7 @@ void FunctionDeclare::analyze(SourceFile* src)
 {
     if (auto function = llvm::dyn_cast<clang::FunctionDecl>(decl))
     {
-        VarRWRecorder visitor(this);
+        VarRecorder visitor(this);
         visitor.TraverseStmt(function->getBody());
     }
 }

@@ -1,4 +1,4 @@
-// Stage Inputs
+// 1. Stage Inputs
 struct vert_main_Inputs {
     float4 __ssl__POSITION : POSITION;
     float3 __ssl__COLOR : COLOR;
@@ -6,31 +6,38 @@ struct vert_main_Inputs {
 };
 
 struct frag_main_Inputs {
-    float4 __ssl__SV_POSITION : SV_POSITION;
     float4 __ssl__COLOR : COLOR;
 };
 
-// Stage Outputs
-struct vert_main_Outputs {
-    float4 __ssl__SV_POSITION : SV_POSITION;
+// 2. Stage Outputs
+#define vert_main_Outputs void
+
+#define frag_main_Outputs void
+
+// 3. Stage SystemValue accesses
+struct vert_main_SVs {
+    float4 __ssl__SV_POSITION : SV_POSITION;//out
 };
 
-struct frag_main_Outputs {
-    float4 __ssl__SV_TARGET : SV_TARGET;
+struct frag_main_SVs {
+    float4 __ssl__SV_POSITION : SV_POSITION;//in
+    float4 __ssl__SV_TARGET : SV_TARGET;//out
 };
 
-// used structures: Vertex, Instance, VertexOut, 
-struct Vertex {
+// 4. HLSL structures
+//    used structures: Test__Vertex, Test__Instance, Test__VertexOut, 
+struct Test__Vertex {
     float4 position;
     float3 color;
 };
 
-struct Instance {
+struct Test__Instance {
     float4x4 transform;
 };
 
-struct VertexOut {
-    float4 position;
+struct Test__VertexOut {
     float4 color;
 };
 
+// 5. HLSL functions
+// 6. HLSL stage input/output assemblers

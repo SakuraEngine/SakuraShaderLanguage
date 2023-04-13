@@ -8,6 +8,17 @@
 
 namespace ssl
 {
+const char* getAccessTypeString(AccessType acess)
+{
+    switch (acess)
+    {
+        case kAccessReading: return "in";
+        case kAccessWriting: return "out";
+        case kAccessReadWrite: return "inout";
+        default: return "unknown";
+    }
+}
+
 SourceFile::~SourceFile()
 {
     for (auto function : functions)
@@ -20,59 +31,66 @@ void SourceFile::analyze()
 {
     // 1. Iterate and analyze all stages
     for (auto function : functions)
+    for (auto attr : function->findAttributes(kStageShaderAttribute))
     {
         // 1.0 analyze function signature
         function->analyze(this);
-        // 1.1 extract system values
-        
-        // 1.2 generate input/output traits
-        auto stage_attrs = function->findAttributes(kStageShaderAttribute);
-        for (auto attr : stage_attrs)
-        {
-            auto& newStage = analysis.stages.emplace_back();
-            newStage.function = function;
-            // 1.1 analyze inputs/outputs with function signature params
-            for (auto param : function->getParameters())
-            {
-                auto QualType = llvm::dyn_cast<clang::ParmVarDecl>(param->getDecl())->getType();
-                auto input_attrs = param->findAttributes(kStageInputAttribute);
-                auto output_attrs = param->findAttributes(kStageOutputAttribute);
-                auto sv_attrs = param->findAttributes(kSVShaderAttribute);
-                (void)input_attrs; // TODO: extract input attributes
-                bool isOutput = QualType->isReferenceType(); // func(T& t), t must be an output
-                isOutput |= (bool)output_attrs.size(); // [[stage_out(i)]] T global; t must an output
-                isOutput &= !(bool)input_attrs.size(); // [[stage_in(i)]] T global; t must be an input
-                for (auto sv_attr : sv_attrs)
-                {
-                    auto semantic = sv_attr->GetStringArgFromAnnotate(0);
-                    if (semantic == "target")
-                    {
-                        isOutput = true;
-                    }
-                }
-                if (isOutput)
-                {
-                    if (auto asRef = QualType->getAs<clang::ReferenceType>())
-                    {
-                        newStage.outputs.emplace_back(
-                            AnalysisStageOutput{ param, nullptr, nullptr }
-                        );
-                    }
-                }
-                else
-                {
-                    newStage.inputs.emplace_back(
-                        AnalysisStageInput{ param, nullptr }
-                    );
-                }
-            }
-            // 1.2 analyze outputs with global variable r/ws
-            for (auto var : function->getWriteVars())
-            {
+        auto& newStage = analysis.stages.emplace_back();
+        newStage.function = function;
 
+        // 1.1 extract system values
+        for (auto param : function->getParameters())
+        {
+            auto sv_attrs = param->findAttributes(kSVShaderAttribute);
+            for (auto sv_attr : sv_attrs)
+            {
+                newStage.svs.emplace_back(
+                    param, function->getAccessType(param)
+                );
+            }
+        }
+        for (auto var : function->getOutterVars())
+        {
+            auto sv_attrs = var->findAttributes(kSVShaderAttribute);
+            for (auto sv_attr : sv_attrs)
+            {
+                newStage.svs.emplace_back(
+                    var, function->getAccessType(var)
+                );
             }
         }
 
+        // 1.2 generate input/output traits
+        // analyze inputs/outputs with function signature params
+        for (auto param : function->getParameters())
+        {
+            auto QualType = llvm::dyn_cast<clang::ParmVarDecl>(param->getDecl())->getType();
+            auto input_attrs = param->findAttributes(kStageInputAttribute);
+            auto output_attrs = param->findAttributes(kStageOutputAttribute);
+            
+            auto sv_attrs = param->findAttributes(kSVShaderAttribute);
+            if (!sv_attrs.empty()) continue;
+
+            (void)input_attrs; // TODO: extract input attributes
+            bool isOutput = QualType->isReferenceType(); // func(T& t), t must be an output
+            isOutput |= (bool)output_attrs.size(); // [[stage_out(i)]] T global; t must an output
+            isOutput &= !(bool)input_attrs.size(); // [[stage_in(i)]] T global; t must be an input
+            if (isOutput)
+            {
+                if (auto asRef = QualType->getAs<clang::ReferenceType>())
+                {
+                    newStage.outputs.emplace_back(
+                        AnalysisStageOutput{ param, nullptr, nullptr }
+                    );
+                }
+            }
+            else
+            {
+                newStage.inputs.emplace_back(
+                    AnalysisStageInput{ param, nullptr }
+                );
+            }
+        }
     }
 }
 
@@ -135,7 +153,18 @@ Declare::Declare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDa
             }
         }
     }
+    if (decl)
+    {
+        root->declLocs[decl] = file_id;
+    }
 }
+
+TypedDeclare::TypedDeclare(clang::NamedDecl* decl, std::string_view file_id, ssl::GlobalDataMap* root)
+    : Declare(decl, file_id, root)
+{
+
+}
+
 
 ShaderAttribute* Declare::findAttribute(ShaderAttributeKind kind)
 {

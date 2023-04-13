@@ -101,7 +101,7 @@ void HLSLShaderLibrary::extractStageInputs()
 
 std::string HLSLShaderLibrary::serializeStageInputs() const
 {
-    std::string serialized = "// Stage Inputs\n";
+    std::string serialized = "// 1. Stage Inputs\n";
     auto newline = [&]() { serialized += "\n    "; };
     for (const auto& stage : stage_inputs)
     {

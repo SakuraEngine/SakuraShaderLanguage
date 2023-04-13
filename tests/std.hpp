@@ -3,11 +3,16 @@
 #define _cxx_builtin clang::annotate("sakura-shader", "_cxx_builtin")
 #define builtin(name) clang::annotate("sakura-shader", "builtin", (name), 1)
 #define attribute(semantic) clang::annotate("sakura-shader", "attribute", semantic)
-#define stage(name) clang::annotate("sakura-shader", "stage", (#name))
 #define stage_in(i) clang::annotate("sakura-shader", "stage_input", #i)
+#define stage(name) clang::annotate("sakura-shader", "stage", (#name))
+
+#define in clang::annotate("sakura-shader", "input_modifier", "in")
+#define out clang::annotate("sakura-shader", "input_modifier", "out")
+#define inout clang::annotate("sakura-shader", "input_modifier", "inout")
+
 #define sv(semantic, ...) clang::annotate("sakura-shader", "sv", semantic, __VA_ARGS__)
 #define sv_position sv("position") 
-#define sv_target(i) sv("target", (i)) 
+#define sv_target(i) out, sv("target", (i)) 
 
 namespace ssl
 {
