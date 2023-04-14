@@ -83,7 +83,24 @@ std::string HLSLStage::serializeAssemblers() const
                 auto plainStruct = (HLSLPlainStruct*)pType.structType;
                 for (const auto& field : plainStruct->fields)
                 {
-
+                    newline();
+                    serialized += param.getName();
+                    serialized += ".";
+                    serialized += field.getName();
+                    // sv
+                    if (param.isSystemValue())
+                    {
+                        serialized += " = ";
+                        serialized += GetSemanticVarName(this->func.declare, param.getSemantic());
+                        serialized += ";";
+                    }
+                    // normal semantic
+                    else
+                    {
+                        serialized += " = input.";
+                        serialized += field.getName();
+                        serialized += ";";
+                    }
                 }
             }
         }

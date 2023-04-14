@@ -53,7 +53,10 @@ vert_main_Outputs vert_main(vert_main_Inputs input,
 {
     vert_main_Outputs outputs = (vert_main_Outputs)0;
     Test__Vertex vertex = (Test__Vertex)0;
+    vertex.vd = input.vd;
+    vertex.color = input.color;
     Test__Instance instance = (Test__Instance)0;
+    instance.transform = input.transform;
     return outputs;
 
 }
@@ -65,6 +68,8 @@ frag_main_Outputs frag_main(frag_main_Inputs input,
 {
     frag_main_Outputs outputs = (frag_main_Outputs)0;
     Test__VertexOut p = (Test__VertexOut)0;
+    p.position = input.position;
+    p.color = input.color;
     float4 pos = (float4)0;
     pos = frag_main_position;
 }
