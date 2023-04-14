@@ -1,19 +1,17 @@
 // 1. Stage Inputs
 struct vert_main_Inputs {
-    float4 __ssl__POSITION : POSITION;
-    float3 __ssl__COLOR : COLOR;
-    float4x4 __ssl__TRANSFORM : TRANSFORM;
+    float4 position : POSITION;
+    float3 color : COLOR;
+    float4x4 transform : TRANSFORM;
 };
 
 struct frag_main_Inputs {
-    float4 __ssl__SV_POSITION : SV_POSITION;
-    float4 __ssl__COLOR : COLOR;
+    float4 color : COLOR;
 };
 
 // 2. Stage Outputs
 struct vert_main_Outputs {
-    float4 __ssl__SV_POSITION : SV_POSITION;
-    float4 __ssl__COLOR : COLOR;
+    float4 color : COLOR;
 };
 
 #define frag_main_Outputs void
@@ -27,9 +25,13 @@ static float4 frag_main_SV_POSITION : SV_POSITION; // in
 static float4 frag_main_SV_TARGET : SV_TARGET; // out
 
 // 4. HLSL structures
-//    used structures: Test__Vertex, Test__Instance, Test__VertexOut, 
-struct Test__Vertex {
+//    used structures: Test__VD, Test__Vertex, Test__Instance, Test__VertexOut, 
+struct Test__VD {
     float4 position;
+};
+
+struct Test__Vertex {
+    Test__VD vd;
     float3 color;
 };
 
@@ -44,9 +46,26 @@ struct Test__VertexOut {
 
 // 5. HLSL functions
 
-
 // 6. HLSL stage input/output assemblers
 // Assembler for vertex stage (vert_main)
+vert_main_Outputs vert_main(vert_main_Inputs input,
+    out float4 vert_main_SV_POSITION : SV_POSITION)
+{
+    vert_main_Outputs outputs = (vert_main_Outputs)0;
+    Test__Vertex vertex = (Test__Vertex)0;
+    Test__Instance instance = (Test__Instance)0;
+    return outputs;
+
+}
 
 // Assembler for fragment stage (frag_main)
+frag_main_Outputs frag_main(frag_main_Inputs input,
+    in float4 frag_main_SV_POSITION : SV_POSITION,
+    out float4 frag_main_SV_TARGET : SV_TARGET)
+{
+    frag_main_Outputs outputs = (frag_main_Outputs)0;
+    Test__VertexOut p = (Test__VertexOut)0;
+    float4 pos = (float4)0;
+    pos = frag_main_position;
+}
 

@@ -7,13 +7,21 @@
 namespace ssl::hlsl
 {
 
+HLSLFlatSVs::HLSLFlatSVs(const HLSLShaderLibrary* root, const AnalysisShaderStage* ana)
+    : HLSLStruct(root), ana(ana)
+{
+    auto fname = ana->function->getDecl()->getQualifiedNameAsString();
+    std::replace(fname.begin(), fname.end(), ':', '_');
+    HLSLTypeName = fname + "_SVs";
+}
+
 void HLSLStage::atomicExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana)
 {
-    HLSLSystemValue& newSV = hlslSV.fields.emplace_back();
+    HLSLSystemValue& newSV = hlslSV.fields.emplace_back(root);
     newSV.ana = Ana;
     if (auto builtin = declType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute))
     {
-        newSV.type = StringToHLSLType(builtin->getBuiltinName().c_str());
+        newSV.type = root->FindHLSLType(builtin->getBuiltinName().c_str());
     }
     newSV.name = decl->getDecl()->getNameAsString();
     if (auto svAttr = decl->findAttribute<SVAttribute>(kSVShaderAttribute))
@@ -58,16 +66,14 @@ void HLSLStage::recursiveExtractStageSVs(HLSLFlatSVs& hlslStage, const AnalysisS
 void HLSLStage::extractStageSVs()
 {
     // extract
-    auto& hlslSV = stage_SVs.emplace_back(&s);
     for (const auto& sv : s.svs)
     {
-        recursiveExtractStageSVs(hlslSV, &sv);
+        recursiveExtractStageSVs(stage_SVs, &sv);
     }
 
     // remove duplicates
-    for (auto& hlslSVs : stage_SVs)
     {
-        auto fields = hlslSVs.getFields();
+        auto fields = stage_SVs.getFields();
         llvm::SmallVector<HLSLSystemValue> unique;
         unique.reserve(fields.size());
         for (auto& hlslSV : fields)
@@ -81,7 +87,7 @@ void HLSLStage::extractStageSVs()
                 unique.emplace_back(hlslSV);
             }
         }
-        hlslSVs.fields = std::move(unique);
+        stage_SVs.fields = std::move(unique);
     }
 }
 
@@ -89,19 +95,18 @@ std::string HLSLStage::serializeStageSVs() const
 {
     std::string serialized = "";
     auto newline = [&]() { serialized += "\nstatic "; };
-    for (const auto& stageSV : stage_SVs)
     {
-        const auto& fields = stageSV.getFields();
+        const auto& fields = stage_SVs.getFields();
         if (!fields.empty())
         {
             serialized += "// Stage: ";
-            serialized += stageSV.HLSLTypeName;
+            serialized += stage_SVs.HLSLTypeName;
             for (auto sv : fields)
             {
                 newline();
                 serialized += HLSLTypeToString(sv.type);
                 serialized += " ";
-                serialized += GetSemanticVarName(stageSV.ana->function, sv.semantic.c_str());
+                serialized += GetSemanticVarName(stage_SVs.ana->function, sv.semantic.c_str());
                 serialized += " : ";
                 serialized += sv.semantic;
                 serialized += "; // ";
@@ -112,5 +117,30 @@ std::string HLSLStage::serializeStageSVs() const
     }
     return serialized + "\n";
 }
+
+std::string HLSLStage::makeStageSVsSignature() const
+{
+    std::string signature = "";
+    auto neslot = [&]() { signature += ",\n    "; };
+    {
+        const auto& fields = stage_SVs.getFields();
+        if (!fields.empty())
+        {
+            for (auto sv : fields)
+            {
+                neslot();
+                signature += getAccessTypeString(sv.ana->getAcessType());
+                signature += " ";
+                signature += HLSLTypeToString(sv.type);
+                signature += " ";
+                signature += GetSemanticVarName(stage_SVs.ana->function, sv.semantic.c_str());
+                signature += " : ";
+                signature += sv.semantic;
+            }
+        }
+    }
+    return signature;
+}
+
 
 }

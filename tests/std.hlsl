@@ -4,4 +4,5 @@
 // 4. HLSL structures
 //    used structures: 
 // 5. HLSL functions
+
 // 6. HLSL stage input/output assemblers

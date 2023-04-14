@@ -10,6 +10,8 @@
 #define out clang::annotate("sakura-shader", "input_modifier", "out")
 #define inout clang::annotate("sakura-shader", "input_modifier", "inout")
 
+#define block clang::annotate("sakura-shader", "block")
+
 #define sv(semantic, ...) clang::annotate("sakura-shader", "sv", semantic, __VA_ARGS__)
 #define sv_position sv("position") 
 #define sv_target(i) out, sv("target", (i)) 

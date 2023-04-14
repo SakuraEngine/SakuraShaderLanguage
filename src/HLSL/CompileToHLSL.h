@@ -5,34 +5,75 @@ namespace ssl
 {
 namespace hlsl
 {
-
-enum class HLSLType : uint32_t
+struct HLSLElement
 {
-    Unknown,
-    Float, Float2, Float3, Float4,
-    Int, Int2, Int3, Int4,
-    UInt, UInt2, UInt3, UInt4,
-    Float4x4,
-    Void,
-    Struct
+    HLSLElement() = default;
+    HLSLElement(const struct HLSLShaderLibrary* root) : root(root) {}
+    virtual ~HLSLElement() = default;
+protected:
+    const struct HLSLShaderLibrary* root = nullptr;
+};
+
+struct HLSLType 
+{
+    enum Primitive : uint32_t
+    {
+        Unknown,
+        Float, Float2, Float3, Float4,
+        Int, Int2, Int3, Int4,
+        UInt, UInt2, UInt3, UInt4,
+        Float4x4,
+        Void,
+        Struct
+    };
+
+    HLSLType(Primitive primitiveType) : primitiveType(primitiveType) {}
+    HLSLType(const struct HLSLStruct* structType) : primitiveType(Struct), structType(structType) {}
+
+    bool operator==(Primitive primitiveType) const { return this->primitiveType == primitiveType; }
+
+    Primitive primitiveType = Primitive::Unknown;
+    const struct HLSLStruct* structType = nullptr;
 };
 
 const char* HLSLTypeToString(HLSLType type);
-HLSLType StringToHLSLType(const char* type);
-std::string GetSemanticVarName(const char* semantic);
-std::string GetSemanticVarName(FunctionDeclare* func, const char* semantic);
+std::string GetSemanticVarName(const FunctionDeclare* func, const char* semantic);
 
-struct HLSLField
+struct HLSLParameter: public HLSLElement
+{
+    HLSLParameter() = default;
+    HLSLParameter(const struct HLSLShaderLibrary* root, const TypeDeclare* declType, const ParameterDeclare* decl, struct HLSLFunction* funcType);
+
+    HLSLType getType() const { return type; }
+    const char* getName() const { return name.c_str(); }
+    bool isSystemValue() const;
+    const char* getSemantic() const { return semantic.c_str(); }
+    
+protected:
+    const TypeDeclare* declType = nullptr;
+    const ParameterDeclare* decl = nullptr;
+    struct HLSLFunction* funcType = nullptr;
+
+    HLSLType type = HLSLType::Unknown;
+    std::string name = "";
+    std::string semantic = "";
+};
+
+struct HLSLField: public HLSLElement
 {
     friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
+
     HLSLField() = default;
-    HLSLField(const TypeDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType);
+    HLSLField(const HLSLShaderLibrary* root) : HLSLElement(root) {}
+    HLSLField(const HLSLShaderLibrary* root, const TypeDeclare* declType, const FieldDeclare* decl);
+
+    HLSLType getType() const { return type; }
+    const char* getName() const { return name.c_str(); }
 
 protected:
     const TypeDeclare* declType = nullptr;
     const FieldDeclare* decl = nullptr;
-    struct HLSLStruct* structType = nullptr;
 
     HLSLType type = HLSLType::Unknown;
     std::string name = "";
@@ -40,27 +81,36 @@ protected:
 
 struct HLSLSemanticField : public HLSLField
 {
+    HLSLSemanticField(const HLSLShaderLibrary* root) : HLSLField(root) {}
+
     uint64_t index;
     std::string semantic;
 };
 
 struct HLSLSystemValue : public HLSLSemanticField
 {
+    HLSLSystemValue(const HLSLShaderLibrary* root) : HLSLSemanticField(root) {}
+
     const AnalysisSystemValues* ana;
 };
 
 struct HLSLInput : public HLSLSemanticField
 {
+    HLSLInput(const HLSLShaderLibrary* root) : HLSLSemanticField(root) {}
+
     const AnalysisStageInput* ana;
 };
 
 struct HLSLOutput : public HLSLSemanticField
 {
+    HLSLOutput(const HLSLShaderLibrary* root) : HLSLSemanticField(root) {}
+
     const AnalysisStageOutput* ana;
 };
 
-struct HLSLStruct
+struct HLSLStruct: public HLSLElement
 {
+    HLSLStruct(const HLSLShaderLibrary* root) : HLSLElement(root) {}
     virtual ~HLSLStruct() = default;
     const char* getHLSLTypeName() const { return HLSLTypeName.c_str(); }
 
@@ -72,7 +122,7 @@ struct HLSLPlainStruct : public HLSLStruct
 {
     friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
-    HLSLPlainStruct(const StructureDeclare* decl);
+    HLSLPlainStruct(const HLSLShaderLibrary* root, const StructureDeclare* decl);
 
     std::span<const HLSLField> getFields() const { return fields; }
 protected:
@@ -84,7 +134,7 @@ struct HLSLFlatStageInput : public HLSLStruct
 {
     friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
-    HLSLFlatStageInput(const AnalysisShaderStage* ana);
+    HLSLFlatStageInput(const HLSLShaderLibrary* root, const AnalysisShaderStage* ana);
 
     std::span<const HLSLInput> getFields() const { return fields; }
 protected:
@@ -96,7 +146,7 @@ struct HLSLFlatStageOutput : public HLSLStruct
 {
     friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
-    HLSLFlatStageOutput(const AnalysisShaderStage* ana);
+    HLSLFlatStageOutput(const HLSLShaderLibrary* root, const AnalysisShaderStage* ana);
 
     std::span<const HLSLOutput> getFields() const { return fields; }
 protected:
@@ -108,7 +158,7 @@ struct HLSLFlatSVs : public HLSLStruct
 {
     friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
-    HLSLFlatSVs(const AnalysisShaderStage* ana);
+    HLSLFlatSVs(const HLSLShaderLibrary* root, const AnalysisShaderStage* ana);
 
     std::span<const HLSLSystemValue> getFields() const { return fields; }
 protected:
@@ -116,15 +166,28 @@ protected:
     const AnalysisShaderStage* ana;
 };
 
-struct HLSLFunction
+struct HLSLFunction : public HLSLElement
 {
-
+    friend struct HLSLStage;
+    friend struct HLSLShaderLibrary;
+    HLSLFunction() = default;
+    HLSLFunction(const HLSLShaderLibrary* root, const FunctionDeclare* decl);
+    
+protected:
+    llvm::SmallVector<HLSLParameter> parameters;
+    const FunctionDeclare* declare = nullptr;
 };
 
-struct HLSLStage
+struct HLSLStage : public HLSLElement
 {
 public:
-    HLSLStage(const AnalysisShaderStage& ana) : s(ana) {}
+    HLSLStage(const HLSLShaderLibrary* root, const AnalysisShaderStage& ana, const HLSLFunction& func) 
+        : HLSLElement(root), s(ana), func(func), 
+          stage_input(root, &ana), stage_output(root, &ana), 
+          stage_SVs(root, &ana) 
+    {
+
+    }
 
     // 1. extract all stage inputs
     void extractStageInputs();
@@ -135,9 +198,8 @@ public:
     // 3. extract all stage sysval access
     void extractStageSVs();
     std::string serializeStageSVs() const;
-    // 5. make functions
-    void makeFunctions();
-    std::string serializeFunctions() const;
+    std::string makeStageSVsSignature() const;
+
     // 6. make assemblers
     void makeAssemblers();
     std::string serializeAssemblers() const;
@@ -156,10 +218,11 @@ protected:
     void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana);
     void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const AnalysisSystemValues* Ana);
 
+    const HLSLFunction& func;
     const AnalysisShaderStage& s;
-    llvm::SmallVector<HLSLFlatStageInput> stage_inputs;
-    llvm::SmallVector<HLSLFlatStageOutput> stage_outputs;
-    llvm::SmallVector<HLSLFlatSVs> stage_SVs;
+    HLSLFlatStageInput stage_input;
+    HLSLFlatStageOutput stage_output;
+    HLSLFlatSVs stage_SVs;
 };
 
 struct HLSLOptions
@@ -170,6 +233,7 @@ struct HLSLOptions
 struct HLSLShaderLibrary
 {
     HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& options);
+    ~HLSLShaderLibrary();
 
     std::string serialize() const;
     void translate();
@@ -177,9 +241,16 @@ struct HLSLShaderLibrary
     // 4. make structures
     void makeStructures();
     std::string serializeStructures() const;
+    // 5. make functions
+    void makeFunctions();
+    std::string serializeFunctions() const;
+
+    HLSLType FindHLSLType(const TypeDeclare* type) const;
+    HLSLType FindHLSLType(const char* type) const;
 
     const SourceFile& f;
-    llvm::SmallVector<HLSLPlainStruct> structures;
+    llvm::SmallVector<HLSLPlainStruct*> structures;
+    llvm::SmallVector<HLSLFunction, 8> functions;
     llvm::SmallVector<HLSLStage, 2> stages;
 };
 

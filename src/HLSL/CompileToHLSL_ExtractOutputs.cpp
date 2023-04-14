@@ -7,13 +7,23 @@
 namespace ssl::hlsl
 {
 
+HLSLFlatStageOutput::HLSLFlatStageOutput(const HLSLShaderLibrary* root, const AnalysisShaderStage* ana)
+    : HLSLStruct(root), ana(ana)
+{
+    auto fname = ana->function->getDecl()->getQualifiedNameAsString();
+    std::replace(fname.begin(), fname.end(), ':', '_');
+    HLSLTypeName = fname + "_Outputs";
+}
+
 void HLSLStage::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana)
 {
-    auto& newOutput = hlslStage.fields.emplace_back();
+    if (auto svAttr = decl->findAttribute<SVAttribute>(kSVShaderAttribute)) return;
+
+    auto& newOutput = hlslStage.fields.emplace_back(root);
     newOutput.ana = Ana;
     if (auto builtin = declType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute))
     {
-        newOutput.type = StringToHLSLType(builtin->getBuiltinName().c_str());
+        newOutput.type = root->FindHLSLType(builtin->getBuiltinName().c_str());
     }
     newOutput.name = decl->getDecl()->getNameAsString();
 
@@ -21,12 +31,6 @@ void HLSLStage::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const 
     {
         newOutput.index = 0u;
         newOutput.semantic = attrAttr->getSemantic();
-        std::transform(newOutput.semantic.begin(), newOutput.semantic.end(), newOutput.semantic.begin(), ::toupper);
-    }
-    else if (auto svAttr = decl->findAttribute<SVAttribute>(kSVShaderAttribute))
-    {
-        newOutput.index = 0u;
-        newOutput.semantic = "SV_" + svAttr->getSemantic();
         std::transform(newOutput.semantic.begin(), newOutput.semantic.end(), newOutput.semantic.begin(), ::toupper);
     }
     else
@@ -70,16 +74,14 @@ void HLSLStage::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, con
 void HLSLStage::extractStageOutputs()
 {
     // extract
-    auto& hlslStage = stage_outputs.emplace_back(&s);
     for (auto output : s.outputs)
     {
-        recursiveExtractStageOutputs(hlslStage, &output);
+        recursiveExtractStageOutputs(stage_output, &output);
     }
 
     // remove duplicates
-    for (auto& hlslStage : stage_outputs)
     {
-        auto fields = hlslStage.getFields();
+        auto fields = stage_output.getFields();
         llvm::SmallVector<HLSLOutput> unique;
         unique.reserve(fields.size());
         for (auto& hlslOutput : fields)
@@ -93,7 +95,7 @@ void HLSLStage::extractStageOutputs()
                 unique.emplace_back(hlslOutput);
             }
         }
-        hlslStage.fields = std::move(unique);
+        stage_output.fields = std::move(unique);
     }
 }
 
@@ -101,32 +103,29 @@ std::string HLSLStage::serializeStageOutputs() const
 {
     std::string serialized = "";
     auto newline = [&]() { serialized += "\n    "; };
-    for (const auto& stage : stage_outputs)
+    const auto& fields = stage_output.getFields();
+    if (!fields.empty())
     {
-        const auto& fields = stage.getFields();
-        if (!fields.empty())
+        serialized += "struct ";
+        serialized += stage_output.getHLSLTypeName();
+        serialized += " {";
+        for (auto output : fields)
         {
-            serialized += "struct ";
-            serialized += stage.getHLSLTypeName();
-            serialized += " {";
-            for (auto output : fields)
-            {
-                newline();
-                serialized += HLSLTypeToString(output.type);
-                serialized += " ";
-                serialized += GetSemanticVarName(output.semantic.c_str());
-                serialized += " : ";
-                serialized += output.semantic;
-                serialized += ";";
-            }
-            serialized += "\n};\n\n";
+            newline();
+            serialized += HLSLTypeToString(output.type);
+            serialized += " ";
+            serialized += output.name;
+            serialized += " : ";
+            serialized += output.semantic;
+            serialized += ";";
         }
-        else
-        {
-            serialized += "#define ";
-            serialized += stage.getHLSLTypeName();
-            serialized += " void\n\n";
-        }
+        serialized += "\n};\n\n";
+    }
+    else
+    {
+        serialized += "#define ";
+        serialized += stage_output.getHLSLTypeName();
+        serialized += " void\n\n";
     }
     return serialized;
 }

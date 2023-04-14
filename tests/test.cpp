@@ -3,11 +3,15 @@
 
 namespace Test
 {
-struct Vertex
+struct VD
 {
     [[attribute("position")]] 
     float4 position;
+};
 
+struct Vertex
+{
+    VD vd;
     [[attribute("color")]] 
     float3 color;
 };
@@ -26,8 +30,11 @@ struct VertexOut
     float4 color;
 };
 
-Texture2D<> tex;
-Texture2D<float4> tex2;
+struct [[block]] Parameters
+{
+    Texture2D<> tex;
+    Texture2D<float4> tex2;
+};
 
 template<typename type_t, cxx_int I>
 [[sv_target(I)]] type_t rtv;
@@ -43,7 +50,7 @@ Test::VertexOut vert_main(
 {
     Test::VertexOut output = {};
     output.color = float4(1.f, 0.f, 0.f, 1.f);
-    Test::svposition = vertex.position;
+    Test::svposition = vertex.vd.position;
     return output;
 }
 

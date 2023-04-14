@@ -7,25 +7,29 @@
 namespace ssl::hlsl
 {
 
+HLSLFlatStageInput::HLSLFlatStageInput(const HLSLShaderLibrary* root, const AnalysisShaderStage* ana)
+    : HLSLStruct(root), ana(ana)
+{
+    auto fname = ana->function->getDecl()->getQualifiedNameAsString();
+    std::replace(fname.begin(), fname.end(), ':', '_');
+    HLSLTypeName = fname + "_Inputs";
+}
+
 void HLSLStage::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana)
 {
-    auto& hlslInput = hlslStage.fields.emplace_back();
+    if (auto svAttr = decl->findAttribute<SVAttribute>(kSVShaderAttribute)) return;
+
+    auto& hlslInput = hlslStage.fields.emplace_back(root);
     hlslInput.ana = Ana;
     if (auto builtin = declType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute))
     {
-        hlslInput.type = StringToHLSLType(builtin->getBuiltinName().c_str());
+        hlslInput.type = root->FindHLSLType(builtin->getBuiltinName().c_str());
     }
     hlslInput.name = decl->getDecl()->getNameAsString();
     if (auto attrAttr = decl->findAttribute<AttributeAttribute>(kAttributeAttribute))
     {
         hlslInput.index = 0u;
         hlslInput.semantic = attrAttr->getSemantic();
-        std::transform(hlslInput.semantic.begin(), hlslInput.semantic.end(), hlslInput.semantic.begin(), ::toupper);
-    }
-    else if (auto svAttr = decl->findAttribute<SVAttribute>(kSVShaderAttribute))
-    {
-        hlslInput.index = 0u;
-        hlslInput.semantic = "SV_" + svAttr->getSemantic();
         std::transform(hlslInput.semantic.begin(), hlslInput.semantic.end(), hlslInput.semantic.begin(), ::toupper);
     }
     else
@@ -69,15 +73,13 @@ void HLSLStage::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const
 void HLSLStage::extractStageInputs()
 {
     // extract
-    auto& hlslStage = stage_inputs.emplace_back(&s);
     for (auto input : s.inputs)
     {
-        recursiveExtractStageInputs(hlslStage, &input);
+        recursiveExtractStageInputs(stage_input, &input);
     }
     // remove duplicates
-    for (auto& hlslStage : stage_inputs)
     {
-        auto fields = hlslStage.getFields();
+        auto fields = stage_input.getFields();
         llvm::SmallVector<HLSLInput> unique;
         unique.reserve(fields.size());
         for (auto& hlslInput : fields)
@@ -91,7 +93,7 @@ void HLSLStage::extractStageInputs()
                 unique.emplace_back(hlslInput);
             }
         }
-        hlslStage.fields = std::move(unique);
+        stage_input.fields = std::move(unique);
     }
 }
 
@@ -99,17 +101,16 @@ std::string HLSLStage::serializeStageInputs() const
 {
     std::string serialized = "";
     auto newline = [&]() { serialized += "\n    "; };
-    for (const auto& stage : stage_inputs)
     {
         serialized += "struct ";
-        serialized += stage.getHLSLTypeName();
+        serialized += stage_input.getHLSLTypeName();
         serialized += " {";
-        for (auto input : stage.getFields())
+        for (auto input : stage_input.getFields())
         {
             newline();
             serialized += HLSLTypeToString(input.type);
             serialized += " ";
-            serialized += GetSemanticVarName(input.semantic.c_str());
+            serialized += input.name;
             serialized += " : ";
             serialized += input.semantic;
             serialized += ";";

@@ -102,12 +102,6 @@ protected:
     AccessType acess = kAcessTypeInvalid;
 };
 
-struct AnalysisShaderFunction
-{
-    struct FunctionDeclare* function = nullptr;
-    llvm::SmallVector<ParameterDeclare*, 8> parameters;
-};
-
 struct AnalysisShaderStage
 {
     struct FunctionDeclare* function = nullptr;
@@ -120,7 +114,6 @@ struct AnalysisShaderStage
 struct SourceAnalysis
 {
     llvm::SmallVector<AnalysisShaderStage, 2> stages;
-    llvm::SmallVector<AnalysisShaderFunction, 2> functions;
 };
 
 struct SourceFile 
