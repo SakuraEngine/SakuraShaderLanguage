@@ -7,9 +7,9 @@
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana)
+void HLSLStage::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana)
 {
-    HLSLOutput newOutput = {};
+    auto& newOutput = hlslStage.fields.emplace_back();
     newOutput.ana = Ana;
     if (auto builtin = declType->findAttribute<BuiltinAttribute>(kBuiltinShaderAttribute))
     {
@@ -22,7 +22,6 @@ void HLSLShaderLibrary::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage
         newOutput.index = 0u;
         newOutput.semantic = attrAttr->getSemantic();
         std::transform(newOutput.semantic.begin(), newOutput.semantic.end(), newOutput.semantic.begin(), ::toupper);
-        hlslStage.fields.emplace_back(newOutput);
     }
     else if (auto svAttr = decl->findAttribute<SVAttribute>(kSVShaderAttribute))
     {
@@ -34,11 +33,10 @@ void HLSLShaderLibrary::atomicExtractStageOutputs(HLSLFlatStageOutput& hlslStage
     {
         newOutput.index = 0u;
         newOutput.semantic = decl->getDecl()->getNameAsString();
-        hlslStage.fields.emplace_back(newOutput);
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana)
+void HLSLStage::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageOutput* Ana)
 {
     if (auto builtinType = llvm::dyn_cast<BuiltinDeclare>(declType))
     {
@@ -61,7 +59,7 @@ void HLSLShaderLibrary::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslSt
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const AnalysisStageOutput* Ana)
+void HLSLStage::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslStage, const AnalysisStageOutput* Ana)
 {
     if (auto decl = Ana->getAsDeclare())
     {
@@ -69,17 +67,13 @@ void HLSLShaderLibrary::recursiveExtractStageOutputs(HLSLFlatStageOutput& hlslSt
     }
 }
 
-void HLSLShaderLibrary::extractStageOutputs()
+void HLSLStage::extractStageOutputs()
 {
-    const auto& ana = f.getAnalysis();
     // extract
-    for (auto stage : ana.stages)
+    auto& hlslStage = stage_outputs.emplace_back(&s);
+    for (auto output : s.outputs)
     {
-        auto& hlslStage = stage_outputs.emplace_back(&stage);
-        for (auto output : stage.outputs)
-        {
-            recursiveExtractStageOutputs(hlslStage, &output);
-        }
+        recursiveExtractStageOutputs(hlslStage, &output);
     }
 
     // remove duplicates
@@ -103,9 +97,9 @@ void HLSLShaderLibrary::extractStageOutputs()
     }
 }
 
-std::string HLSLShaderLibrary::serializeStageOutputs() const
+std::string HLSLStage::serializeStageOutputs() const
 {
-    std::string serialized = "// 2. Stage Outputs\n";
+    std::string serialized = "";
     auto newline = [&]() { serialized += "\n    "; };
     for (const auto& stage : stage_outputs)
     {

@@ -51,6 +51,13 @@ std::string GetSemanticVarName(const char* semantic)
     return std::string("__ssl__") + semantic;
 }
 
+std::string GetSemanticVarName(FunctionDeclare* func, const char* semantic)
+{
+    auto fname = func->getDecl()->getQualifiedNameAsString();
+    std::replace(fname.begin(), fname.end(), ':', '_');
+    return fname + "_" + semantic;
+}
+
 HLSLField::HLSLField(const TypeDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType)
     : declType(declType), decl(decl), structType(structType) 
 {
@@ -99,23 +106,50 @@ HLSLShaderLibrary::HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& opt
 
 void HLSLShaderLibrary::translate()
 {
-    extractStageInputs();
-    extractStageOutputs();
-    extractStageSVs();
+    for (const auto& s : f.getAnalysis().stages)
+        stages.emplace_back(s);
+
+    for (auto& stage : stages)
+        stage.extractStageInputs();
+    for (auto& stage : stages)
+        stage.extractStageOutputs();
+    for (auto& stage : stages)
+        stage.extractStageSVs();
+    
     makeStructures();
-    makeFunctions();
-    makeAssemblers();
+    
+    for (auto& stage : stages)
+        stage.makeFunctions();
+    for (auto& stage : stages)
+        stage.makeAssemblers();
 }
 
 std::string HLSLShaderLibrary::serialize() const
 {
     std::string serialized = "";
-    serialized += serializeStageInputs();
-    serialized += serializeStageOutputs();
-    serialized += serializeStageSVs();
+    serialized += "// 1. Stage Inputs\n";
+    for (auto& stage : stages)
+        serialized += stage.serializeStageInputs();
+
+    serialized += "// 2. Stage Outputs\n";
+    for (auto& stage : stages)
+        serialized += stage.serializeStageOutputs();
+
+    serialized += "// 3. SystemValue accesses\n";
+    for (auto& stage : stages)
+        serialized += stage.serializeStageSVs();
+
+    serialized += "// 4. HLSL structures\n";
     serialized += serializeStructures();
-    serialized += serializeFunctions();
-    serialized += serializeAssemblers();
+
+    serialized += "// 5. HLSL functions\n";
+    for (auto& stage : stages)
+        serialized += stage.serializeFunctions();
+
+    serialized += "// 6. HLSL stage input/output assemblers\n";
+    for (auto& stage : stages)
+        serialized += stage.serializeAssemblers();
+
     return serialized;
 }
 

@@ -20,8 +20,8 @@ struct Instance
 
 struct VertexOut
 {
-    // [[sv("position")]] 
-    // float4 position;
+    [[sv("position")]] 
+    float4 position;
     [[attribute("color")]] 
     float4 color;
 };

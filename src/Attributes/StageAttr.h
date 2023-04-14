@@ -15,6 +15,11 @@ struct StageAttribute : public ShaderAttribute
         return A->getKind() == ssl::kStageShaderAttribute;
     }
 
+    std::string getStageName() const 
+    {
+        return ShaderAttribute::GetStringArgFromAnnotate(_this, 0);
+    }
+
     ssl::Declare* declare;
 };
 

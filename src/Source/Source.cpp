@@ -37,6 +37,7 @@ void SourceFile::analyze()
         function->analyze(this);
         auto& newStage = analysis.stages.emplace_back();
         newStage.function = function;
+        newStage.stage_attr = attr;
 
         // 1.1 extract system values
         for (auto param : function->getParameters())

@@ -7,7 +7,7 @@
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::atomicExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana)
+void HLSLStage::atomicExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana)
 {
     HLSLSystemValue& newSV = hlslSV.fields.emplace_back();
     newSV.ana = Ana;
@@ -24,7 +24,7 @@ void HLSLShaderLibrary::atomicExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDec
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana)
+void HLSLStage::recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana)
 {
     if (auto builtinType = llvm::dyn_cast<BuiltinDeclare>(declType))
     {
@@ -47,7 +47,7 @@ void HLSLShaderLibrary::recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const Type
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageSVs(HLSLFlatSVs& hlslStage, const AnalysisSystemValues* Ana)
+void HLSLStage::recursiveExtractStageSVs(HLSLFlatSVs& hlslStage, const AnalysisSystemValues* Ana)
 {
     if (auto decl = Ana->getAsDeclare())
     {
@@ -55,17 +55,13 @@ void HLSLShaderLibrary::recursiveExtractStageSVs(HLSLFlatSVs& hlslStage, const A
     }
 }
 
-void HLSLShaderLibrary::extractStageSVs()
+void HLSLStage::extractStageSVs()
 {
-    const auto& ana = f.getAnalysis();
     // extract
-    for (const auto& stage : ana.stages)
+    auto& hlslSV = stage_SVs.emplace_back(&s);
+    for (const auto& sv : s.svs)
     {
-        auto& hlslSV = stage_SVs.emplace_back(&stage);
-        for (const auto& sv : stage.svs)
-        {
-            recursiveExtractStageSVs(hlslSV, &sv);
-        }
+        recursiveExtractStageSVs(hlslSV, &sv);
     }
 
     // remove duplicates
@@ -89,40 +85,32 @@ void HLSLShaderLibrary::extractStageSVs()
     }
 }
 
-std::string HLSLShaderLibrary::serializeStageSVs() const
+std::string HLSLStage::serializeStageSVs() const
 {
-    std::string serialized = "// 3. Stage SystemValue accesses\n";
-    auto newline = [&]() { serialized += "\n    "; };
+    std::string serialized = "";
+    auto newline = [&]() { serialized += "\nstatic "; };
     for (const auto& stageSV : stage_SVs)
     {
         const auto& fields = stageSV.getFields();
         if (!fields.empty())
         {
-            serialized += "struct ";
-            serialized += stageSV.getHLSLTypeName();
-            serialized += " {";
+            serialized += "// Stage: ";
+            serialized += stageSV.HLSLTypeName;
             for (auto sv : fields)
             {
                 newline();
                 serialized += HLSLTypeToString(sv.type);
                 serialized += " ";
-                serialized += GetSemanticVarName(sv.semantic.c_str());
+                serialized += GetSemanticVarName(stageSV.ana->function, sv.semantic.c_str());
                 serialized += " : ";
                 serialized += sv.semantic;
-                serialized += ";";
-                serialized += "//";
+                serialized += "; // ";
                 serialized += getAccessTypeString(sv.ana->getAcessType());
             }
-            serialized += "\n};\n\n";
-        }
-        else
-        {
-            serialized += "#define ";
-            serialized += stageSV.getHLSLTypeName();
-            serialized += " void\n\n";
+            serialized += "\n";
         }
     }
-    return serialized;
+    return serialized + "\n";
 }
 
 }

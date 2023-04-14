@@ -7,7 +7,7 @@
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana)
+void HLSLStage::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana)
 {
     auto& hlslInput = hlslStage.fields.emplace_back();
     hlslInput.ana = Ana;
@@ -35,7 +35,7 @@ void HLSLShaderLibrary::atomicExtractStageInputs(HLSLFlatStageInput& hlslStage, 
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana)
+void HLSLStage::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const TypeDeclare* declType, const Declare* decl, const AnalysisStageInput* Ana)
 {
     if (auto builtinType = llvm::dyn_cast<BuiltinDeclare>(declType))
     {
@@ -58,7 +58,7 @@ void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStag
     }
 }
 
-void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const AnalysisStageInput* Ana)
+void HLSLStage::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStage, const AnalysisStageInput* Ana)
 {
     if (auto decl = Ana->getAsDeclare())
     {
@@ -66,17 +66,13 @@ void HLSLShaderLibrary::recursiveExtractStageInputs(HLSLFlatStageInput& hlslStag
     }
 }
 
-void HLSLShaderLibrary::extractStageInputs()
+void HLSLStage::extractStageInputs()
 {
-    const auto& ana = f.getAnalysis();
     // extract
-    for (auto stage : ana.stages)
+    auto& hlslStage = stage_inputs.emplace_back(&s);
+    for (auto input : s.inputs)
     {
-        auto& hlslStage = stage_inputs.emplace_back(&stage);
-        for (auto input : stage.inputs)
-        {
-            recursiveExtractStageInputs(hlslStage, &input);
-        }
+        recursiveExtractStageInputs(hlslStage, &input);
     }
     // remove duplicates
     for (auto& hlslStage : stage_inputs)
@@ -99,9 +95,9 @@ void HLSLShaderLibrary::extractStageInputs()
     }
 }
 
-std::string HLSLShaderLibrary::serializeStageInputs() const
+std::string HLSLStage::serializeStageInputs() const
 {
-    std::string serialized = "// 1.Stage Inputs\n";
+    std::string serialized = "";
     auto newline = [&]() { serialized += "\n    "; };
     for (const auto& stage : stage_inputs)
     {

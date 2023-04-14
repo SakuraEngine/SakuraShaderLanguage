@@ -7,19 +7,16 @@
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::makeFunctions()
+void HLSLStage::makeFunctions()
 {
-    const auto& source = f;
-    const auto& ana = f.getAnalysis();
 
 }
 
-std::string HLSLShaderLibrary::serializeFunctions() const
+std::string HLSLStage::serializeFunctions() const
 {
     std::string serialized = "";
-    serialized += "// 5. HLSL functions\n";
 
-    return serialized;
+    return serialized + "\n";
 }
 
 }

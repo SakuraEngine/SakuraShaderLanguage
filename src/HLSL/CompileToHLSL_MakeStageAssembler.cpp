@@ -7,19 +7,28 @@
 namespace ssl::hlsl
 {
 
-void HLSLShaderLibrary::makeAssemblers()
+void HLSLStage::makeAssemblers()
 {
-    const auto& source = f;
-    const auto& ana = f.getAnalysis();
 
 }
 
-std::string HLSLShaderLibrary::serializeAssemblers() const
+std::string HLSLStage::serializeAssemblers() const
 {
     std::string serialized = "";
-    serialized += "// 6. HLSL stage input/output assemblers\n";
+    for (const auto& stageSV : stage_SVs)
+    {
+        auto stageAttr = llvm::dyn_cast<StageAttribute>(stageSV.ana->stage_attr);
+        // comment
+        serialized += "// Assembler for ";
+        serialized += stageAttr->getStageName();
+        serialized += " stage (";
+        serialized += stageSV.ana->function->getDecl()->getQualifiedNameAsString();
+        serialized += ")\n";
 
-    return serialized;
+        // signature
+        serialized += "";
+    }
+    return serialized + "\n";
 }
 
 }

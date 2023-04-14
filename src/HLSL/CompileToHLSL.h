@@ -20,9 +20,11 @@ enum class HLSLType : uint32_t
 const char* HLSLTypeToString(HLSLType type);
 HLSLType StringToHLSLType(const char* type);
 std::string GetSemanticVarName(const char* semantic);
+std::string GetSemanticVarName(FunctionDeclare* func, const char* semantic);
 
 struct HLSLField
 {
+    friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
     HLSLField() = default;
     HLSLField(const TypeDeclare* declType, const FieldDeclare* decl, struct HLSLStruct* structType);
@@ -68,6 +70,7 @@ protected:
 
 struct HLSLPlainStruct : public HLSLStruct
 {
+    friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
     HLSLPlainStruct(const StructureDeclare* decl);
 
@@ -79,6 +82,7 @@ protected:
 
 struct HLSLFlatStageInput : public HLSLStruct
 {
+    friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
     HLSLFlatStageInput(const AnalysisShaderStage* ana);
 
@@ -90,6 +94,7 @@ protected:
 
 struct HLSLFlatStageOutput : public HLSLStruct
 {
+    friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
     HLSLFlatStageOutput(const AnalysisShaderStage* ana);
 
@@ -101,6 +106,7 @@ protected:
 
 struct HLSLFlatSVs : public HLSLStruct
 {
+    friend struct HLSLStage;
     friend struct HLSLShaderLibrary;
     HLSLFlatSVs(const AnalysisShaderStage* ana);
 
@@ -115,17 +121,10 @@ struct HLSLFunction
 
 };
 
-struct HLSLOptions
+struct HLSLStage
 {
-    bool CommentSourceLine = false;
-};
-
-struct HLSLShaderLibrary
-{
-    HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& options);
-
-    std::string serialize() const;
-    void translate();
+public:
+    HLSLStage(const AnalysisShaderStage& ana) : s(ana) {}
 
     // 1. extract all stage inputs
     void extractStageInputs();
@@ -136,9 +135,6 @@ struct HLSLShaderLibrary
     // 3. extract all stage sysval access
     void extractStageSVs();
     std::string serializeStageSVs() const;
-    // 4. make structures
-    void makeStructures();
-    std::string serializeStructures() const;
     // 5. make functions
     void makeFunctions();
     std::string serializeFunctions() const;
@@ -160,11 +156,31 @@ protected:
     void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const TypeDeclare* declType, const Declare* decl, const AnalysisSystemValues* Ana);
     void recursiveExtractStageSVs(HLSLFlatSVs& hlslSV, const AnalysisSystemValues* Ana);
 
-    const SourceFile& f;
+    const AnalysisShaderStage& s;
     llvm::SmallVector<HLSLFlatStageInput> stage_inputs;
     llvm::SmallVector<HLSLFlatStageOutput> stage_outputs;
     llvm::SmallVector<HLSLFlatSVs> stage_SVs;
+};
+
+struct HLSLOptions
+{
+    bool CommentSourceLine = false;
+};
+
+struct HLSLShaderLibrary
+{
+    HLSLShaderLibrary(const SourceFile& f, const HLSLOptions& options);
+
+    std::string serialize() const;
+    void translate();
+
+    // 4. make structures
+    void makeStructures();
+    std::string serializeStructures() const;
+
+    const SourceFile& f;
     llvm::SmallVector<HLSLPlainStruct> structures;
+    llvm::SmallVector<HLSLStage, 2> stages;
 };
 
 std::string compile(const SourceFile& P, const HLSLOptions& options = {});

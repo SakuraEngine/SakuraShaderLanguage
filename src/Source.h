@@ -111,6 +111,7 @@ struct AnalysisShaderFunction
 struct AnalysisShaderStage
 {
     struct FunctionDeclare* function = nullptr;
+    ShaderAttribute* stage_attr = nullptr;
     llvm::SmallVector<AnalysisStageInput, 1> inputs;
     llvm::SmallVector<AnalysisStageOutput, 1> outputs;
     llvm::SmallVector<AnalysisSystemValues> svs;
